@@ -11,11 +11,50 @@
             <artifactId>imageio-tiff</artifactId>
             <version>3.8.2</version>
         </dependency-->
+        <dependency>
+            <groupId>org.apache.commons</groupId>
+            <artifactId>commons-imaging</artifactId>
+            <version>1.0-alpha2</version>
+        </dependency>
+        <dependency>
+          <groupId>org.la4j</groupId>
+          <artifactId>la4j</artifactId>
+          <version>0.6.0</version>
+        </dependency>
     </dependencies>
+    <build>
+        <plugins>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-shade-plugin</artifactId>
+                <executions>
+                    <execution>
+                        <phase>package</phase>
+                        <goals>
+                            <goal>shade</goal>
+                        </goals>
+                    </execution>
+                </executions>
+                <configuration>
+                    <finalName>uber-${artifactId}-${version}</finalName>
+                    <filters>
+                        <filter>
+                            <artifact>*:*</artifact>
+                            <excludes>
+                                <exclude>META-INF/*.SF</exclude>
+                                <exclude>META-INF/*.DSA</exclude>
+                                <exclude>META-INF/*.RSA</exclude>
+                            </excludes>
+                        </filter>
+                    </filters>
+                </configuration>
+            </plugin>
+        </plugins>
+    </build>
     <properties>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
-        <maven.compiler.source>18</maven.compiler.source>
-        <maven.compiler.target>18</maven.compiler.target>
+        <maven.compiler.source>1.8</maven.compiler.source>
+        <maven.compiler.target>1.8</maven.compiler.target>
         <exec.mainClass>svsutil.SVSUtil</exec.mainClass>
     </properties>
 </project>
