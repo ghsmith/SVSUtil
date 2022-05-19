@@ -34,8 +34,8 @@ public class ColorUtil {
     public static void main(String[] args) throws FileNotFoundException, IOException, InterruptedException {
         
         int threads = 4;
-        final int[] quality = {87}; // array because I need this final for an inner class
-        final int[] skip = {0}; // array because I need this final for an inner class
+        int quality = 87;
+        int skip = 0;
 
         Options options = new Options();
 
@@ -44,12 +44,12 @@ public class ColorUtil {
         optionThreads.setType(Number.class);
         options.addOption(optionThreads);
 
-        Option optionQuality = new Option("q", "quality", true, String.format("JPEG compression quality, integer 0 - 100 (default = %d)", quality[0]));
+        Option optionQuality = new Option("q", "quality", true, String.format("JPEG compression quality, integer 0 - 100 (default = %d)", quality));
         optionQuality.setRequired(false);
         optionQuality.setType(Number.class);
         options.addOption(optionQuality);
 
-        Option optionSkip = new Option("s", "skip", true, String.format("skip this many tiles when recoloring; used to create interesting patterns of raw/recolored tiles, integer (default = %d)", skip[0]));
+        Option optionSkip = new Option("s", "skip", true, String.format("skip this many tiles when recoloring; used to create interesting patterns of raw/recolored tiles, integer (default = %d)", skip));
         optionSkip.setRequired(false);
         optionSkip.setType(Number.class);
         options.addOption(optionSkip);
@@ -61,8 +61,8 @@ public class ColorUtil {
         try {
             cmd = parser.parse(options, args);
             if(cmd.hasOption(optionThreads)) { threads = ((Long)cmd.getParsedOptionValue(optionThreads)).intValue(); }
-            if(cmd.hasOption(optionQuality)) { quality[0] = ((Long)cmd.getParsedOptionValue(optionQuality)).intValue(); }
-            if(cmd.hasOption(optionSkip)) { skip[0] = ((Long)cmd.getParsedOptionValue(optionSkip)).intValue(); }
+            if(cmd.hasOption(optionQuality)) { quality = ((Long)cmd.getParsedOptionValue(optionQuality)).intValue(); }
+            if(cmd.hasOption(optionSkip)) { skip = ((Long)cmd.getParsedOptionValue(optionSkip)).intValue(); }
             if(cmd.getArgs().length != 1) { throw new ParseException("no file specified"); }
             if(!cmd.getArgs()[0].toLowerCase().endsWith(".svs")) { throw new ParseException("file name must have a 'svs' extension"); }
         } catch (ParseException e) {
@@ -72,62 +72,6 @@ public class ColorUtil {
         }
         
         final SVSFile svsFile = new SVSFile(cmd.getArgs()[0], threads);
-
-        class RecolorRunner implements Runnable {
-            public static Integer nextTileNo = 0;
-            @Override
-            public void run() {
-                try {
-                    Iterator iter = ImageIO.getImageWritersByFormatName("jpeg");            
-                    ImageWriter writer = (ImageWriter)iter.next();
-                    ImageWriteParam iwp = writer.getDefaultWriteParam();
-                    iwp.setCompressionMode(ImageWriteParam.MODE_EXPLICIT);
-                    iwp.setCompressionQuality(quality[0] / 100f);
-                    int tileNo = -1;
-                    for(int x = 0; x < svsFile.tiffDirList.size(); x++) {
-                        TIFFDir tiffDir = svsFile.tiffDirList.get(x);
-                        for(int y = 0; y < tiffDir.tileContigList.size(); y++) {
-                            TiffTileContig tileContig = tiffDir.tileContigList.get(y);
-                            for(int z = 0; z < tileContig.tagTileOffsetsInSvs.length; z++) {
-                                tileNo++;
-                                synchronized(nextTileNo) {
-                                    if(tileNo < nextTileNo) {
-                                        continue;
-                                    }
-                                    for(int a = 0; a < skip[0]; a++) {
-                                        tileContig.recoloredTileBytesMap.put(z + a + 1, svsFile.getBytes(tileContig.tagTileOffsetsInSvs[z], tileContig.tagTileOffsetsInSvs[z] + tileContig.tagTileLengths[z]));
-                                    }
-                                    nextTileNo += skip[0] + 1;
-                                }
-                                InputStream is = new ByteArrayInputStream(svsFile.getBytes(tileContig.tagTileOffsetsInSvs[z], tileContig.tagTileOffsetsInSvs[z] + tileContig.tagTileLengths[z]));
-                                BufferedImage image = ImageIO.read(is);
-                                is.close();
-                                for(int xx = 0; xx < image.getWidth(); xx++) {
-                                    for(int yy = 0; yy < image.getHeight(); yy++) {
-                                        int pixelIn = image.getRGB(xx, yy);
-                                        int r = (pixelIn & 0x00ff0000) >> 16;
-                                        int g = (pixelIn & 0x0000ff00) >>  8;
-                                        int b = (pixelIn & 0x000000ff) >>  0;
-                                        image.setRGB(xx, yy, (pixelIn & 0xff000000) | ((svsFile.lutUpsampled[r][g][b][SVSFile.R] << 16) & 0x00ff0000) | ((svsFile.lutUpsampled[r][g][b][SVSFile.G] <<  8) & 0x0000ff00) | ((svsFile.lutUpsampled[r][g][b][SVSFile.B] <<  0) & 0x000000ff));
-                                    }
-                                }
-                                ByteArrayOutputStream baos = new ByteArrayOutputStream(50000);
-                                ImageOutputStream ios = new MemoryCacheImageOutputStream(baos);
-                                writer.setOutput(ios);
-                                IIOImage newImage = new IIOImage(image, null, null);
-                                writer.write(null, newImage, iwp);
-                                tileContig.recoloredTileBytesMap.put(z, baos.toByteArray());
-                                ios.close();
-                                baos.close();
-                            }
-                        }
-                    }
-                }
-                catch(Exception e) {
-                    throw new RuntimeException(e);
-                }
-            }
-        }
 
         logger.log(Level.INFO, String.format("recoloring tiles in %d threads...", threads));
 
@@ -209,7 +153,7 @@ public class ColorUtil {
         
         Thread[] recolorThreads = new Thread[threads];
         for(int x = 0; x < threads; x++) {
-            recolorThreads[x] = new Thread(new RecolorRunner());
+            recolorThreads[x] = new Thread(new RecolorRunner(svsFile, quality, skip));
             recolorThreads[x].start();
         }
         for(int x = 0; x < threads; x++) {
