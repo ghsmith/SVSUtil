@@ -67,7 +67,7 @@ public class ColorUtil {
             if(!cmd.getArgs()[0].toLowerCase().endsWith(".svs")) { throw new ParseException("file name must have a 'svs' extension"); }
         } catch (ParseException e) {
             System.out.println(e.getMessage());
-            formatter.printHelp("java -jar svscolorutil.jar [options] file-to-recolor.svs", options);
+            formatter.printHelp("java -jar svsutil.jar [options] file-to-recolor.svs", options);
             System.exit(1);
         }
         
