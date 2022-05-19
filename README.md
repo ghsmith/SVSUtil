@@ -13,6 +13,6 @@ usage: java -jar svsutil.jar colorutil [options] file-to-recolor.svs
 
 The following SVS was created using this command line:
 
-`java -jar svsutil.jar -q80 -s1 -t24 test_slide_small.svs`
+`java -jar svsutil.jar colorutil -q80 -s1 -t24 test_slide_small.svs`
   
 ![example of a recolored SVS in ImageScope](recolor_example.png)
