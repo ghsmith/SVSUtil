@@ -25,8 +25,6 @@ public class TIFFDir {
     
     List<TiffTileContig> tileContigList = new ArrayList<>();
 
-    public boolean colorCorrect = false;
-    
     public TIFFDir(SVSFile svsFile, long offsetInSvs) {
 
         long[] tagTileOffsetsInSvs = null;

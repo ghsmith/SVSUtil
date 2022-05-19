@@ -75,7 +75,8 @@ public class SVSFile {
                     logger.log(Level.INFO, String.format("...contig %d consists of %d tiles and %d bytes (starts %d ends %d)", x, tiffDir.tileContigList.get(x).tagTileOffsetsInSvs.length, tiffDir.tileContigList.get(x).length, tiffDir.tileContigList.get(x).offsetInSvs, tiffDir.tileContigList.get(x).offsetInSvs + tiffDir.tileContigList.get(x).length));
                 }
                 if(tiffDir.tagICCNameOffsetInHeader != -1) {
-                    tiffDir.colorCorrect = true;
+                    setByte(tiffDir.offsetInSvs + tiffDir.tagICCNameOffsetInHeader + 0, (byte)0xff); // clobber ICC in the TIFF directory
+                    setByte(tiffDir.offsetInSvs + tiffDir.tagICCNameOffsetInHeader + 1, (byte)0xff); // clobber ICC in the TIFF directory
                     logger.log(Level.INFO, String.format("this directory has an ICC color profile and will be color-corrected"));
                     if(iccBytes == null) {
                         iccBytes = getBytes(tiffDir.tagICCOffsetInSvs, tiffDir.tagICCOffsetInSvs + tiffDir.tagICCLength);
