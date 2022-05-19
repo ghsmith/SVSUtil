@@ -31,7 +31,7 @@ public class ColorUtil {
     
     static Logger logger = Logger.getLogger(ColorUtil.class.getName());    
     
-    public static void main(String[] args) throws ParseException, FileNotFoundException, IOException, InterruptedException {
+    public static void main(String[] args) throws FileNotFoundException, IOException, InterruptedException {
         
         int threads = 4;
         final int[] quality = {87}; // array because I need this final for an inner class
@@ -62,6 +62,7 @@ public class ColorUtil {
             cmd = parser.parse(options, args);
             if(cmd.hasOption(optionThreads)) { threads = ((Long)cmd.getParsedOptionValue(optionThreads)).intValue(); }
             if(cmd.hasOption(optionQuality)) { quality[0] = ((Long)cmd.getParsedOptionValue(optionQuality)).intValue(); }
+            if(cmd.hasOption(optionSkip)) { skip[0] = ((Long)cmd.getParsedOptionValue(optionSkip)).intValue(); }
             if(cmd.getArgs().length != 1) { throw new ParseException("no file specified"); }
             if(!cmd.getArgs()[0].toLowerCase().endsWith(".svs")) { throw new ParseException("file name must have a 'svs' extension"); }
         } catch (ParseException e) {
@@ -93,8 +94,8 @@ public class ColorUtil {
                                     if(tileNo < nextTileNo) {
                                         continue;
                                     }
-                                    for(int skipTileNo = 0; skipTileNo < skip[0]; skipTileNo++) {
-                                        tileContig.recoloredTileBytesMap.put(z, svsFile.getBytes(tileContig.tagTileOffsetsInSvs[z], tileContig.tagTileOffsetsInSvs[z] + tileContig.tagTileLengths[z]));
+                                    for(int a = 0; a < skip[0]; a++) {
+                                        tileContig.recoloredTileBytesMap.put(z + a + 1, svsFile.getBytes(tileContig.tagTileOffsetsInSvs[z], tileContig.tagTileOffsetsInSvs[z] + tileContig.tagTileLengths[z]));
                                     }
                                     nextTileNo += skip[0] + 1;
                                 }
@@ -133,23 +134,24 @@ public class ColorUtil {
         Thread statusThread = new Thread(new Runnable() {
             @Override
             public void run() {
-                try {
-                    int tileCount = 0;
-                    for(int x = 0; x < svsFile.tiffDirList.size(); x++) {
-                        TIFFDir tiffDir = svsFile.tiffDirList.get(x);
-                        for(int y = 0; y < tiffDir.tileContigList.size(); y++) {
-                            TiffTileContig tileContig = tiffDir.tileContigList.get(y);
-                            for(int z = 0; z < tileContig.tagTileOffsetsInSvs.length; z++) {
-                                tileCount++;
-                            }
+                int tileCount = 0;
+                for(int x = 0; x < svsFile.tiffDirList.size(); x++) {
+                    TIFFDir tiffDir = svsFile.tiffDirList.get(x);
+                    for(int y = 0; y < tiffDir.tileContigList.size(); y++) {
+                        TiffTileContig tileContig = tiffDir.tileContigList.get(y);
+                        for(int z = 0; z < tileContig.tagTileOffsetsInSvs.length; z++) {
+                            tileCount++;
                         }
                     }
+                }
+                try {
                     while(true) {
                         logger.log(Level.INFO, String.format("%d of %d tiles recolored (%4.1f%% complete)", RecolorRunner.nextTileNo, tileCount, 100f * RecolorRunner.nextTileNo / tileCount));
                         Thread.sleep(10000);
                     }
                 }
                 catch(InterruptedException e) {
+                    logger.log(Level.INFO, String.format("%d of %d tiles recolored (%4.1f%% complete)", RecolorRunner.nextTileNo, tileCount, 100f * RecolorRunner.nextTileNo / tileCount));
                 }
                 catch(Exception e) {
                     throw new RuntimeException(e);
