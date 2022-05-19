@@ -1,5 +1,6 @@
 package svsutil;
 
+import svsutil.jmist.Interpolater;
 import java.awt.image.BufferedImage;
 import java.io.BufferedReader;
 import java.io.ByteArrayInputStream;
@@ -47,7 +48,7 @@ public class SVSUtil {
         System.out.println("Loading LUT...");
         {
 
-            File file = new File(args[0]); 
+            File file = new File("c:/scanner/GT450_64.cube"); 
             BufferedReader br = new BufferedReader(new FileReader(file));
             br.readLine();
             br.readLine();
@@ -103,7 +104,7 @@ public class SVSUtil {
         System.out.println("Parsing TIFF tags in SVS file... ");
         {
 
-            svsIn = Files.readAllBytes(Paths.get(args[1]));                  
+            svsIn = Files.readAllBytes(Paths.get("c:/scanner/test_slide_small.svs"));                  
             
             int fileOffset = (int)bytesToLong(Arrays.copyOfRange(svsIn, 0x00000008, 0x00000010));
             while(fileOffset != 1919250497) {
@@ -261,7 +262,7 @@ public class SVSUtil {
 
         System.out.println("Performing color transform... ");
         {
-            Thread[] transformerThreads = new Thread[12];
+            Thread[] transformerThreads = new Thread[6];
             for(int x = 0; x < transformerThreads.length; x++) {
                 transformerThreads[x] = new Thread(new Transformer(x, transformerThreads.length));
                 transformerThreads[x].start();
@@ -340,7 +341,7 @@ public class SVSUtil {
 
             }
             
-            Files.write(Paths.get(args[1].replace(".svs", ".converted.svs")), svsIn);
+            Files.write(Paths.get("c:/scanner/out.svs"), svsIn);
 
         }
         System.out.println(" done.");
