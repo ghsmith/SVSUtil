@@ -34,7 +34,7 @@ abstract class RecolorRunner implements Runnable {
         this.skip = skip;
         synchronized(svsFile) {
 
-            if(svsFile.lutComputed) {
+            if(svsFile.lutComputed || this.getClass().getName().endsWith("CMSRunner")) {
                 return;
             }
             

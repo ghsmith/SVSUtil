@@ -143,8 +143,9 @@ public class ColorUtil {
         Thread[] recolorThreads = new Thread[threads];
         for(int x = 0; x < threads; x++) {
             recolorThreads[x] = new Thread(new RecolorImageIORunner(svsFile, threads, quality, skip));
-            // I am still working to see if I can get libjpeg-turbo to create sufficiently small JPEGs to speed things up...
             //recolorThreads[x] = new Thread(new RecolorLibJpegTurboRunner(svsFile, threads, quality, skip));
+            //recolorThreads[x] = new Thread(new RecolorLightCMSRunner(svsFile, threads, quality, skip));
+            //recolorThreads[x] = new Thread(new RecolorJavaCMSRunner(svsFile, threads, quality, skip));
             recolorThreads[x].start();
         }
         for(int x = 0; x < threads; x++) {
