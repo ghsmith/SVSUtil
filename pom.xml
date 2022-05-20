@@ -20,6 +20,32 @@
           <artifactId>la4j</artifactId>
           <version>0.6.0</version>
         </dependency>
+        <!-- Trying to improve performance:
+             I tried a native JPEG encoder/decoder, but it generates JPEGs that
+             are significantly larger and don't fit in the tile contigs in the
+             SVS (I'm trying to avoid making the SVS file any larger) in initial
+             testing...
+        -->
+        <!-- git clone https://github.com/libjpeg-turbo/libjpeg-turbo ; cmake -G"Unix Makefiles" -DWITH_JAVA=1 ; make -->
+        <!-- mvn install:install-file -Dfile=/home/pyewacket/libjpeg-turbo/java/turbojpeg.jar -DgroupId=local -DartifactId=libjpeg-turbo -Dversion=1.0 -Dpackaging=jar -->
+        <!-- export LD_LIBRARY_PATH={build-directory} -->
+        <!--dependency>
+            <groupId>local</groupId>
+            <artifactId>libjpeg-turbo</artifactId>
+            <version>1.0</version>
+        </dependency-->
+        <!-- Trying to improve performance:
+             I tried a native color management system (LittleCMS) to avoid having
+             to do the LUT operations myself, but it was way to slow in initial
+             testing...
+        -->
+        <!-- sudo apt-get install liblcms2-2; git clone https://github.com/etordera/JCMS ; gradle build -->
+        <!-- mvn install:install-file -Dfile=/home/pyewacket/JCMS/build/libs/JCMS.jar -DgroupId=local -DartifactId=jcms -Dversion=1.0 -Dpackaging=jar -->
+        <!--dependency>
+            <groupId>local</groupId>
+            <artifactId>jcms</artifactId>
+            <version>1.0</version>
+        </dependency-->
     </dependencies>
     <build>
         <plugins>

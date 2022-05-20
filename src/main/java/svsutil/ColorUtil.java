@@ -1,20 +1,9 @@
 package svsutil;
 
-import java.awt.image.BufferedImage;
-import java.io.ByteArrayInputStream;
-import java.io.ByteArrayOutputStream;
 import java.io.FileNotFoundException;
 import java.io.IOException;
-import java.io.InputStream;
-import java.util.Iterator;
 import java.util.logging.Level;
 import java.util.logging.Logger;
-import javax.imageio.IIOImage;
-import javax.imageio.ImageIO;
-import javax.imageio.ImageWriteParam;
-import javax.imageio.ImageWriter;
-import javax.imageio.stream.ImageOutputStream;
-import javax.imageio.stream.MemoryCacheImageOutputStream;
 import org.apache.commons.cli.CommandLine;
 import org.apache.commons.cli.CommandLineParser;
 import org.apache.commons.cli.DefaultParser;
@@ -90,12 +79,12 @@ public class ColorUtil {
                 }
                 try {
                     while(true) {
-                        logger.log(Level.INFO, String.format("%d of %d tiles recolored (%4.1f%% complete)", RecolorRunner.nextTileNo, tileCount, 100f * RecolorRunner.nextTileNo / tileCount));
+                        logger.log(Level.INFO, String.format("%d of %d tiles recolored (%4.1f%% complete)", svsFile.nextTileNo, tileCount, 100f * svsFile.nextTileNo / tileCount));
                         Thread.sleep(10000);
                     }
                 }
                 catch(InterruptedException e) {
-                    logger.log(Level.INFO, String.format("%d of %d tiles recolored (%4.1f%% complete)", RecolorRunner.nextTileNo, tileCount, 100f * RecolorRunner.nextTileNo / tileCount));
+                    logger.log(Level.INFO, String.format("%d of %d tiles recolored (%4.1f%% complete)", svsFile.nextTileNo, tileCount, 100f * svsFile.nextTileNo / tileCount));
                 }
                 catch(Exception e) {
                     throw new RuntimeException(e);
@@ -153,7 +142,9 @@ public class ColorUtil {
         
         Thread[] recolorThreads = new Thread[threads];
         for(int x = 0; x < threads; x++) {
-            recolorThreads[x] = new Thread(new RecolorRunner(svsFile, quality, skip));
+            recolorThreads[x] = new Thread(new RecolorImageIORunner(svsFile, threads, quality, skip));
+            // I am still working to see if I can get libjpeg-turbo to create sufficiently small JPEGs to speed things up...
+            //recolorThreads[x] = new Thread(new RecolorLibJpegTurboRunner(svsFile, threads, quality, skip));
             recolorThreads[x].start();
         }
         for(int x = 0; x < threads; x++) {
