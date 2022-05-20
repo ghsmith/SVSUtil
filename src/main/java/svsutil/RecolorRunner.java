@@ -38,6 +38,9 @@ class RecolorRunner implements Runnable {
             ImageWriteParam iwp = writer.getDefaultWriteParam();
             iwp.setCompressionMode(ImageWriteParam.MODE_EXPLICIT);
             iwp.setCompressionQuality(quality / 100f);
+            ByteArrayOutputStream baos = new ByteArrayOutputStream(500000);
+            ImageOutputStream ios = new MemoryCacheImageOutputStream(baos);
+            writer.setOutput(ios);
             int tileNo = -1;
             for(int x = 0; x < svsFile.tiffDirList.size(); x++) {
                 TIFFDir tiffDir = svsFile.tiffDirList.get(x);
@@ -66,14 +69,10 @@ class RecolorRunner implements Runnable {
                                 image.setRGB(xx, yy, (pixelIn & 0xff000000) | ((svsFile.lutUpsampled[r][g][b][SVSFile.R] << 16) & 0x00ff0000) | ((svsFile.lutUpsampled[r][g][b][SVSFile.G] <<  8) & 0x0000ff00) | ((svsFile.lutUpsampled[r][g][b][SVSFile.B] <<  0) & 0x000000ff));
                             }
                         }
-                        ByteArrayOutputStream baos = new ByteArrayOutputStream(50000);
-                        ImageOutputStream ios = new MemoryCacheImageOutputStream(baos);
-                        writer.setOutput(ios);
                         IIOImage newImage = new IIOImage(image, null, null);
+                        baos.reset();
                         writer.write(null, newImage, iwp);
                         tileContig.recoloredTileBytesMap.put(z, baos.toByteArray());
-                        ios.close();
-                        baos.close();
                     }
                 }
             }

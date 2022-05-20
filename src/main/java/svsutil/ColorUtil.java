@@ -113,7 +113,7 @@ public class ColorUtil {
                         for(int y = 0; y < tiffDir.tileContigList.size(); y++) {
                             TiffTileContig tileContig = tiffDir.tileContigList.get(y);
                             while(tileContig.recoloredTileBytesMap.size() < tileContig.tagTileOffsetsInSvs.length) {
-                                Thread.sleep(100);
+                                Thread.sleep(50);
                             }
                             int totalLength = 0;
                             for(int z = 0; z < tileContig.tagTileOffsetsInSvs.length; z++) {
