@@ -4,7 +4,7 @@ This might be useful when you need to render an SVS using an application that is
 
 The positions of the TIFF headers and contiguous blocks of tiles in the SVS file are maintained.
 The recolored SVS file is the same size as the original SVS file.
-If the recolored tiles do ont fit into the space avaialble in the SVS file, reducing the JPEG compression quality by one (e.g., from 87 to 86) usually allows the recolored tiles to fit into the space available.
+If the recolored tiles do not fit into the space avaialble in the SVS file, reducing the JPEG compression quality by one (e.g., from 87 to 86) usually allows the recolored tiles to fit into the space available.
 
 This utility has only been tested with SVS files acquired on a Leica/Aperio GT450 scanner.
 
