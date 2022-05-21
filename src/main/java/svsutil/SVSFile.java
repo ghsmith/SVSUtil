@@ -29,7 +29,6 @@ public class SVSFile {
 
     public String svsFileName;
     public long length = -1;
-    public int threads = -1;
     
     public List<byte[]> svsBytesList = new ArrayList<>();
     public List<TIFFDir> tiffDirList = new ArrayList<>();
@@ -41,10 +40,9 @@ public class SVSFile {
 
     public Integer nextTileNo = 0;
     
-    public SVSFile(String svsFileName, int threads) throws FileNotFoundException, IOException, InterruptedException {
+    public SVSFile(String svsFileName) throws FileNotFoundException, IOException, InterruptedException {
 
         this.svsFileName = svsFileName;
-        this.threads = threads;
 
         FileInputStream fis = new FileInputStream(svsFileName);
 
