@@ -65,10 +65,10 @@ public class SVSFile {
             tiffDirList.add(tiffDir);
             logger.log(Level.INFO, String.format("TIFF directory #%d header parsed with %d tags", tiffDirList.size(), tiffDir.tagNumberOfTags));
             if(!tiffDir.tileContigList.isEmpty()) {
-                logger.log(Level.INFO, String.format("this directory has %d tile contigs", tiffDir.tileContigList.size()));
-                for(int x = 0; x < tiffDir.tileContigList.size(); x++) {
-                    logger.log(Level.INFO, String.format("...contig %d consists of %d tiles and %d bytes (starts %d ends %d)", x, tiffDir.tileContigList.get(x).tagTileOffsetsInSvs.length, tiffDir.tileContigList.get(x).length, tiffDir.tileContigList.get(x).offsetInSvs, tiffDir.tileContigList.get(x).offsetInSvs + tiffDir.tileContigList.get(x).length));
-                }
+                //logger.log(Level.INFO, String.format("this directory has %d tile contigs", tiffDir.tileContigList.size()));
+                //for(int x = 0; x < tiffDir.tileContigList.size(); x++) {
+                //    logger.log(Level.INFO, String.format("contig %d consists of %d tiles and %d bytes (starts %d ends %d)", x, tiffDir.tileContigList.get(x).tagTileOffsetsInSvs.length, tiffDir.tileContigList.get(x).length, tiffDir.tileContigList.get(x).offsetInSvs, tiffDir.tileContigList.get(x).offsetInSvs + tiffDir.tileContigList.get(x).length));
+                //}
                 if(tiffDir.tagICCNameOffsetInHeader != -1) {
                     setByte(tiffDir.offsetInSvs + tiffDir.tagICCNameOffsetInHeader + 0, (byte)0xff); // clobber ICC in the TIFF directory
                     setByte(tiffDir.offsetInSvs + tiffDir.tagICCNameOffsetInHeader + 1, (byte)0xff); // clobber ICC in the TIFF directory
