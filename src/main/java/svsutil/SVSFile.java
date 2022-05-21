@@ -1,5 +1,8 @@
 package svsutil;
 
+import java.awt.color.ColorSpace;
+import java.awt.color.ICC_ColorSpace;
+import java.awt.color.ICC_Profile;
 import java.io.FileInputStream;
 import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
@@ -78,6 +81,19 @@ public class SVSFile {
                 }
             }
             offset = tiffDir.tagNextDirOffsetInSvs;
+        }
+        
+        ColorSpace colorSpace = new ICC_ColorSpace(ICC_Profile.getInstance(iccBytes));
+        for(int r = 0; r < 0x100; r++) {
+            for(int g = 0; g < 0x100; g++) {
+                for(int b = 0; b < 0x100; b++) {
+                    float[] rgbTransformed = colorSpace.toRGB(new float[] { 1f * r / 0xff, 1f * g / 0xff, 1f * b / 0xff});
+                    lutUpsampled[r][g][b][R] = (int)(rgbTransformed[0] * 0xff);
+                    lutUpsampled[r][g][b][G] = (int)(rgbTransformed[1] * 0xff);
+                    lutUpsampled[r][g][b][B] = (int)(rgbTransformed[2] * 0xff);
+                    lutUpsampledInt[((r & 0x0000ff)) << 16 | ((g & 0x0000ff) << 8) | ((b & 0x0000ff) << 0)] = ((lutUpsampled[r][g][b][R] & 0x0000ff)) << 16 | ((lutUpsampled[r][g][b][G] & 0x0000ff) << 8) | ((lutUpsampled[r][g][b][B] & 0x0000ff) << 0);
+                }
+            }
         }
 
     }

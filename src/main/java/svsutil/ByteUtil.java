@@ -29,30 +29,6 @@ public class ByteUtil {
         return val;
     }
     
-    // most significant byte first (ICC color profile)
-    static float bytesToFloatMSF(byte[] bs) {
-        float val;
-        int val1 = (bs[0] & 0xff) << 8 | (bs[1] & 0xff) << 0;
-        int val2 = (bs[2] & 0xff) << 8 | (bs[3] & 0xff) << 0;
-        val = 1f * val1 + (1f * val2 / 0xffff);
-        return val;
-    }
-
-    // most significant byte first (ICC color profile)
-    static int bytesToIntMSF(byte[] bs) {
-        int val;
-        if(bs.length == 4){
-            val = (bs[0] & 0xff) << 24 | (bs[1] & 0xff) << 16 | (bs[2] & 0xff) << 8 | (bs[3] & 0xff) << 0;
-        }
-        else if(bs.length == 2) {
-            val = (bs[0] & 0xff) << 8 | (bs[1] & 0xff) << 0;
-        }
-        else {
-            val = -1;
-        }
-        return val;
-    }
-    
     public static String bytesToString(byte[] bs) {
         String val = new String(bs);
         return val;
