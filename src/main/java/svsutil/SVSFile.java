@@ -85,7 +85,7 @@ public class SVSFile {
         for(int r = 0; r < 0x100; r++) {
             for(int g = 0; g < 0x100; g++) {
                 for(int b = 0; b < 0x100; b++) {
-                    float[] rgbTransformed = colorSpace.toRGB(new float[] { 1f * r / 0xff, 1f * g / 0xff, 1f * b / 0xff});
+                    float[] rgbTransformed = colorSpace.toRGB(new float[] { 1f * r / 0xff, 1f * g / 0xff, 1f * b / 0xff });
                     lutUpsampled[r][g][b][R] = (int)(rgbTransformed[0] * 0xff);
                     lutUpsampled[r][g][b][G] = (int)(rgbTransformed[1] * 0xff);
                     lutUpsampled[r][g][b][B] = (int)(rgbTransformed[2] * 0xff);
