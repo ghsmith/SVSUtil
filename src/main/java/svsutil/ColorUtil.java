@@ -107,13 +107,16 @@ public class ColorUtil {
         {
             for(int x = 0; x < svsFile.tiffDirList.size(); x++) {
                 TIFFDir tiffDir = svsFile.tiffDirList.get(x);
+                if(tiffDir.tileContigList.isEmpty()) {
+                    continue;
+                }
                 int bytesAvailable = 0;
                 int bytesRequired = 0;
                 for(int y = tiffDir.tileContigList.size() - 1; y >= 0; y--) {
                     // tile contigs appear in reverse order (i.e., bottom row first, left-to-right, then next row up, etc.)
                     TiffTileContig tileContig = tiffDir.tileContigList.get(y);
                     for(int z = 0; z < tileContig.tagTileOffsetsInSvs.length; z++) {
-                        bytesAvailable += tileContig.recoloredTileBytesMap.get(z).length;
+                        bytesAvailable += tileContig.tagTileLengths[z];
                         bytesRequired += tileContig.recoloredTileBytesMap.get(z).length;
                     }
                 }
@@ -121,8 +124,8 @@ public class ColorUtil {
                     logger.log(Level.SEVERE, String.format("error writing TIFF directory %d image tiles: %d bytes are available but %d bytes are required - reduce JPEG compression quality", x, bytesAvailable, bytesRequired));
                     System.exit(1);
                 }
-                logger.log(Level.INFO, String.format("writing TIFF directory %d image tiles: %d bytes are available and %d bytes are required (%4.1f%% utilization)", x, bytesAvailable, bytesRequired));
-                long tileOffsetInSvs = tiffDir.tileContigList.get(tiffDir.tileContigList.size()).tagTileOffsetsInSvs[0];
+                logger.log(Level.INFO, String.format("writing TIFF directory %d image tiles: %d bytes are available and %d bytes are required (%4.1f%% utilization)", x, bytesAvailable, bytesRequired, 100f * bytesRequired / bytesAvailable));
+                long tileOffsetInSvs = tiffDir.tileContigList.get(tiffDir.tileContigList.size() - 1).tagTileOffsetsInSvs[0];
                 for(int y = tiffDir.tileContigList.size() - 1; y >= 0; y--) {
                     // tile contigs appear in reverse order (i.e., bottom row first, left-to-right, then next row up, etc.)
                     TiffTileContig tileContig = tiffDir.tileContigList.get(y);
