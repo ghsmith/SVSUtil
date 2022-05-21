@@ -1,6 +1,6 @@
 # SVSUtil
 This utility recolors the image tiles in an SVS file using the ICC profile embedded in the SVS metadata.
-This might be useful when you need to render an SVS using an application that is not color-managed.
+This might be useful when you need to render an SVS file using an application that is not color-managed.
 
 The positions of the TIFF headers and contiguous blocks of tiles in the SVS file are maintained.
 The recolored SVS file is the same size as the original SVS file.
