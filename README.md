@@ -8,9 +8,9 @@ These utilities have only been tested with SVS files acquired on a Leica/Aperio 
 - TIFF Directory #3 - Medium-low-resolution (4.2 microns/pixel) histology. 24-bit color JPG image tiles. This directory includes an ICC profile. These image tiles are recolored by "colorutil."
 - TIFF Directory #4 - Low-resolution (17 microns/pixel) histology. 24-bit color JPG image tiles. This directory includes an ICC profile. These image tiles are recolored by "colorutil."
 - TIFF Directory #5 - Label. Horizontally-differenced LZW-encoded 24-bit color bitmap (not tiled). This directory does not include an ICC profile. This image is not recolored by "colorutil" but is manipulated by "labelutil."
-- TIFF Directory #6 - Low-resolution "macro" image of entire slide, including a portion of the label, annotated with scan area, focus points, and white balance point. 24-bit colr JPG image (not tiled). This directory does not include an ICC profile. This image is not recolored by "colorutil."
+- TIFF Directory #6 - Low-resolution "macro" image of entire slide, including a portion of the label, annotated with scan area, focus points, and white balance point. 24-bit color JPG image (not tiled). This directory does not include an ICC profile. This image is not recolored by "colorutil."
 
-The ICC profiles in #0 - #4 are identical and primarily consist of a 103 x 103 x 103 color lookup table (CLUT). Since the ICC profiles are identical, "colorutil" uses the ICC profile in #0 for all color correction operations.
+The ICC profiles in #0 - #4 are identical and primarily consist of a 103 x 103 x 103 color lookup table (CLUT). Since the ICC profiles are identical, "colorutil" uses the ICC profile in #0 for all color correction operations. All JPG encoding/decoding and color transformations are performed using standard Java API calls. I believe modern OpenJDK versions use the well-respected Little-CMS color management system.
 
 If you try them on an SVS file created by another Leica/Aperio scanner model, and something doesn't work, let me know (geoffrey.smith@emory.edu) and I'll work on it!
 
