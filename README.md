@@ -31,7 +31,7 @@ The following SVS was created using this command line:
 
 Although it is obvious to say this, I have found that the best performance is achieved with more recent OpenJDK releases on CPUs with many cores. All SVS file operations are performed in-memory, so it may be necessary to increase your Java heap size for large files. For example, the following command line uses OpenJDK 17 with a 4GB heap and runs in 24 concurrent threads:
 
-`/usr/lib/jvm/java-17-openjdk-amd64/bin/java -Djava.awt.headless=true -Dawt.toolkit=sun.awt.HToolkit -Xms4G -Xmx4G -jar svsutil.jar colorutil -t24 -s1 test_slide.svs`
+`/usr/lib/jvm/java-17-openjdk-amd64/bin/java -Djava.awt.headless=true -Dawt.toolkit=sun.awt.HToolkit -Xms4G -Xmx4G -jar svsutil.jar colorutil -t24 test_slide.svs`
 
 ## Label Utility
 
