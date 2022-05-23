@@ -19,7 +19,7 @@ import java.util.logging.Logger;
  */
 public class SVSFile {
 
-    static Logger logger = Logger.getLogger(SVSFile.class.getName());    
+    static final Logger logger = Logger.getLogger(SVSFile.class.getName());    
 
     public static final int BUFFER_SIZE = 500000000;
     
@@ -61,18 +61,15 @@ public class SVSFile {
 
         long offset = ByteUtil.bytesToLong(getBytes(0x00000008, 0x00000010));
         while(offset != 0x72657041) {
+            logger.log(Level.INFO, String.format("========== parsing TIFF directory #%d header ==========", tiffDirList.size()));
             TIFFDir tiffDir = new TIFFDir(this, offset);
             tiffDirList.add(tiffDir);
-            logger.log(Level.INFO, String.format("TIFF directory #%d header parsed with %d tags", tiffDirList.size(), tiffDir.tagNumberOfTags));
             if(!tiffDir.tileContigList.isEmpty()) {
                 //logger.log(Level.INFO, String.format("this directory has %d tile contigs", tiffDir.tileContigList.size()));
                 //for(int x = 0; x < tiffDir.tileContigList.size(); x++) {
                 //    logger.log(Level.INFO, String.format("contig %d consists of %d tiles and %d bytes (starts %d ends %d)", x, tiffDir.tileContigList.get(x).tagTileOffsetsInSvs.length, tiffDir.tileContigList.get(x).length, tiffDir.tileContigList.get(x).offsetInSvs, tiffDir.tileContigList.get(x).offsetInSvs + tiffDir.tileContigList.get(x).length));
                 //}
-                if(tiffDir.tagICCNameOffsetInHeader != -1) {
-                    setByte(tiffDir.offsetInSvs + tiffDir.tagICCNameOffsetInHeader + 0, (byte)0xff); // clobber ICC in the TIFF directory
-                    setByte(tiffDir.offsetInSvs + tiffDir.tagICCNameOffsetInHeader + 1, (byte)0xff); // clobber ICC in the TIFF directory
-                    logger.log(Level.INFO, String.format("this directory has an ICC color profile and will be color-corrected"));
+                if(iccBytes == null && tiffDir.tagICCNameOffsetInHeader != -1) {
                     if(iccBytes == null) {
                         iccBytes = getBytes(tiffDir.tagICCOffsetInSvs, tiffDir.tagICCOffsetInSvs + tiffDir.tagICCLength);
                     }
@@ -80,11 +77,14 @@ public class SVSFile {
             }
             offset = tiffDir.tagNextDirOffsetInSvs;
         }
-        
+
+    }
+    
+    public void computeLut() {
         ColorSpace colorSpace = new ICC_ColorSpace(ICC_Profile.getInstance(iccBytes));
-        for(int r = 0; r < 0x100; r++) {
+        for(int b = 0; b < 0x100; b++) {
             for(int g = 0; g < 0x100; g++) {
-                for(int b = 0; b < 0x100; b++) {
+                for(int r = 0; r < 0x100; r++) {
                     float[] rgbTransformed = colorSpace.toRGB(new float[] { 1f * r / 0xff, 1f * g / 0xff, 1f * b / 0xff });
                     lutUpsampled[r][g][b][R] = (int)(rgbTransformed[0] * 0xff);
                     lutUpsampled[r][g][b][G] = (int)(rgbTransformed[1] * 0xff);
@@ -93,11 +93,10 @@ public class SVSFile {
                 }
             }
         }
-
     }
 
-    public void write() throws FileNotFoundException, IOException {
-        FileOutputStream fos = new FileOutputStream(svsFileName.replace(".", "_recolored."));
+    public void write(String svsFileNameNew) throws FileNotFoundException, IOException {
+        FileOutputStream fos = new FileOutputStream(svsFileNameNew);
         long bytesLeftToWrite = length;
         for(byte[] svsBytes : svsBytesList) {
             if(bytesLeftToWrite > BUFFER_SIZE) {

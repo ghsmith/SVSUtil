@@ -12,14 +12,20 @@ public class SVSUtil {
 
     public static void main(String[] args) throws IOException, FileNotFoundException, InterruptedException {
 
-        if(args.length == 0 || !"colorutil".equals(args[0])) {
+        if(args.length == 0 || !("colorutil".equals(args[0]) || "labelutil".equals(args[0]))) {
             System.err.println("USAGE: java -jar svsutil.jar [application]");
             System.err.println();
-            System.err.println("available applications: colorutil");
+            System.err.println("available applications: colorutil, labelutil");
             System.exit(1);
         }
 
-        ColorUtil.main(Arrays.copyOfRange(args, 1, args.length));
+        if("colorutil".equals(args[0])) {
+            ColorUtil.main(Arrays.copyOfRange(args, 1, args.length));
+        }
+        
+        if("labelutil".equals(args[0])) {
+            LabelUtil.main(Arrays.copyOfRange(args, 1, args.length));
+        }
         
     }
     

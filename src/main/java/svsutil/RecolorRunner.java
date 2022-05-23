@@ -20,7 +20,7 @@ import javax.imageio.stream.MemoryCacheImageOutputStream;
  */
 class RecolorRunner implements Runnable {
 
-    static Logger logger = Logger.getLogger(RecolorRunner.class.getName());    
+    static final Logger logger = Logger.getLogger(RecolorRunner.class.getName());    
 
     public SVSFile svsFile;
     public int quality;

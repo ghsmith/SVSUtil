@@ -12,7 +12,7 @@ import java.util.logging.Logger;
  */
 public class TIFFDir {
 
-    static Logger logger = Logger.getLogger(TIFFDir.class.getName());    
+    static final Logger logger = Logger.getLogger(TIFFDir.class.getName());    
     
     public SVSFile svsFile;
     
@@ -22,6 +22,13 @@ public class TIFFDir {
     public int tagICCNameOffsetInHeader = -1;
     public long tagICCOffsetInSvs = -1;
     public int tagICCLength = -1;
+    
+    public long imageDataOffsetInSvs = -1;
+    public long imageDataLength = -1;
+    public int imageDataLengthOffsetInHeader = -1;
+    public int subfileType = -1;
+    public int width = -1;
+    public int height = -1;
     
     List<TiffTileContig> tileContigList = new ArrayList<>();
 
@@ -51,7 +58,28 @@ public class TIFFDir {
                     tagICCLength = tagValueCount;
                 }
                 currentOffsetInHeader += 0x00000008;
-                if(tagDataType == 2) {
+                if(tagName == 256) {
+                    width = (int)ByteUtil.bytesToLong(svsFile.getBytes(offsetInSvs + currentOffsetInHeader, offsetInSvs + currentOffsetInHeader + 0x0000008));
+                    currentOffsetInHeader += 0x00000008;
+                }
+                else if(tagName == 257) {
+                    height = (int)ByteUtil.bytesToLong(svsFile.getBytes(offsetInSvs + currentOffsetInHeader, offsetInSvs + currentOffsetInHeader + 0x0000008));
+                    currentOffsetInHeader += 0x00000008;
+                }
+                else if(tagName == 254) {
+                    subfileType = (int)ByteUtil.bytesToLong(svsFile.getBytes(offsetInSvs + currentOffsetInHeader, offsetInSvs + currentOffsetInHeader + 0x0000008));
+                    currentOffsetInHeader += 0x00000008;
+                }
+                else if(tagName == 273) {
+                    imageDataOffsetInSvs = ByteUtil.bytesToLong(svsFile.getBytes(offsetInSvs + currentOffsetInHeader, offsetInSvs + currentOffsetInHeader + 0x00000008));
+                    currentOffsetInHeader += 0x00000008;
+                }
+                else if(tagName == 279) {
+                    imageDataLength = ByteUtil.bytesToLong(svsFile.getBytes(offsetInSvs + currentOffsetInHeader, offsetInSvs + currentOffsetInHeader + 0x00000008));
+                    imageDataLengthOffsetInHeader = (int)currentOffsetInHeader;
+                    currentOffsetInHeader += 0x00000008;
+                }
+                else if(tagDataType == 2) {
                     long dataOffsetInSvs = ByteUtil.bytesToLong(svsFile.getBytes(offsetInSvs + currentOffsetInHeader, offsetInSvs + currentOffsetInHeader + 0x00000008));
                     currentOffsetInHeader += 0x00000008;
                     String tagValue = ByteUtil.bytesToString(svsFile.getBytes(dataOffsetInSvs, dataOffsetInSvs + tagValueCount));

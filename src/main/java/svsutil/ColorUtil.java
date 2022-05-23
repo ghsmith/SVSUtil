@@ -1,5 +1,6 @@
 package svsutil;
 
+import java.io.File;
 import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.util.logging.Level;
@@ -18,7 +19,7 @@ import org.apache.commons.cli.ParseException;
  */
 public class ColorUtil {
     
-    static Logger logger = Logger.getLogger(ColorUtil.class.getName());    
+    static final Logger logger = Logger.getLogger(ColorUtil.class.getName());    
     
     public static void main(String[] args) throws FileNotFoundException, IOException, InterruptedException {
         
@@ -54,14 +55,17 @@ public class ColorUtil {
             if(cmd.hasOption(optionSkip)) { skip = ((Long)cmd.getParsedOptionValue(optionSkip)).intValue(); }
             if(cmd.getArgs().length != 1) { throw new ParseException("no file specified"); }
             if(!cmd.getArgs()[0].toLowerCase().endsWith(".svs")) { throw new ParseException("file name must have a 'svs' extension"); }
-        } catch (ParseException e) {
+        }
+        catch (ParseException e) {
             System.out.println(e.getMessage());
-            formatter.printHelp("java -jar svsutil.jar [options] file-to-recolor.svs", options);
+            formatter.printHelp("java -jar svsutil.jar colorutil [options] svs_file_name", options);
             System.exit(1);
         }
         
         final SVSFile svsFile = new SVSFile(cmd.getArgs()[0]);
 
+        svsFile.computeLut();
+        
         logger.log(Level.INFO, String.format("recoloring tiles in %d threads", threads));
 
         Thread statusThread = new Thread(new Runnable() {
@@ -107,6 +111,8 @@ public class ColorUtil {
         {
             for(int x = 0; x < svsFile.tiffDirList.size(); x++) {
                 TIFFDir tiffDir = svsFile.tiffDirList.get(x);
+                svsFile.setByte(tiffDir.offsetInSvs + tiffDir.tagICCNameOffsetInHeader + 0, (byte)0xff); // clobber ICC in the TIFF directory
+                svsFile.setByte(tiffDir.offsetInSvs + tiffDir.tagICCNameOffsetInHeader + 1, (byte)0xff); // clobber ICC in the TIFF directory
                 int bytesAvailable = 0;
                 int bytesRequired = 0;
                 for(int y = tiffDir.tileContigList.size() - 1; y >= 0; y--) {
@@ -141,11 +147,10 @@ public class ColorUtil {
                     }
                 }
             }
-            svsFile.write();
+            svsFile.write((new File(svsFile.svsFileName)).getName().replaceAll(".svs$", "_recolored.svs"));
+            logger.log(Level.INFO, String.format("recolored slide written to %s in current directory", (new File(svsFile.svsFileName)).getName().replaceAll(".svs$", "_recolored.svs")));
         }
         
-        logger.log(Level.INFO, String.format("done"));
-
         System.exit(0);
 
     }
