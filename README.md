@@ -6,7 +6,7 @@ If you try these utilities on an SVS file created by another Leica/Aperio scanne
 
 This is a Java project that builds an executable JAR with Maven (i.e., "mvn package").
 
-## Recolor Utility
+## [Re]color Utility
 
 This utility recolors the image tiles in an SVS file using the International Color Consortium (ICC) profile embedded in the SVS metadata.
 This might be useful when you need to render an SVS file using an application that is not color-managed.
