@@ -63,23 +63,35 @@ public class TIFFDir {
 
     public List<TIFFTag> tiffTagList = new ArrayList<>();
     
-    public long offsetInSvs = -1;
-    public long tagNextDirOffsetInSvs = -1;
-    public int tagNumberOfTags = -1;
-    public long tagICCOffsetInSvs = -1;
-    public int tagICCLength = -1;
-
-    public long imageDataOffsetInSvs = -1;
-    public long imageDataLength = -1;
-    public int imageDataLengthOffsetInHeader = -1;
+    // these are in all TIFF directories
     public int subfileType = -1;
     public int width = -1;
     public int height = -1;
+    public long offsetInSvs = -1;
+    public long tagNextDirOffsetInSvs = -1;
+    public int tagNumberOfTags = -1;
 
-    // this is needed to "clobber" the ICC to prevent double-color-correction
-    // (i.e., by this utility and then by a client rendering the SVS)
+    // this is needed to extract the ICC color profile bytes
+    public long tagICCOffsetInSvs = -1;
+    public int tagICCLength = -1;
+
+    // these are for the non-tiled images (thumbnail, label, macro)
+    public long imageDataOffsetInSvs = -1;
+    public long imageDataLength = -1;
+    public int imageDataLengthOffsetInHeader = -1;
+
+    // this is needed to clobber the ICC profile in the SVS to prevent double-
+    // color-correction (i.e., by this utility and then by a client rendering
+    // the SVS)
     public int tagICCNameOffsetInHeader = -1;
-    
+
+    // presevering the relationship of tile contigs in the high-resolution
+    // TIFF directory (the first TIFF directory) is important for proper SVS
+    // rendering; there is one tile-contig per row of tiles in the high-
+    // resolution TIFF directory and they appear in the SVS file in the order
+    // bottom-row-to-top-row and then left-to-right (i.e., the reverse of the
+    // order the contigs appear in this list); all of the other TIFF directories
+    // use a single tile-contig and this isn't an issue
     List<TiffTileContig> tileContigList = new ArrayList<>();
 
     public TIFFDir(SVSFile svsFile, long offsetInSvs) {
