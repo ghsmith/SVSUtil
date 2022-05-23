@@ -1,6 +1,6 @@
 # SVS Utilities
 
-These utilities have only been tested with SVS files acquired on a Leica/Aperio GT450 scanner in one focal plane. See "Technical Details" below.
+These utilities have only been tested with ScanScope Virtual Slide (SVS) files acquired on a Leica/Aperio GT450 scanner in one focal plane. See "Technical Details" below.
 
 If you try these utilities on an SVS file created by another Leica/Aperio scanner model and/or something doesn't work, let me know (geoffrey.smith@emory.edu) and I'll work on it!
 
