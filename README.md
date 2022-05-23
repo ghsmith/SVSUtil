@@ -1,9 +1,9 @@
 # SVS Utilities
 
-These utility has only been tested with SVS files acquired on a Leica/Aperio GT450 scanner.
-If you try it on an SVS file created by another Leica/Aperio scanner model, and it doesn't work, let me know (geoffrey.smith@emory.edu) and I'll work on it!
+These utilities have only been tested with SVS files acquired on a Leica/Aperio GT450 scanner.
+If you try them on an SVS file created by another Leica/Aperio scanner model, and it doesn't work, let me know (geoffrey.smith@emory.edu) and I'll work on it!
 
-This is a Java project that builds with Maven (i.e., "mvn package").
+This is a Java project that builds an executable JAR with Maven (i.e., "mvn package").
 
 ## Recolor Utility
 
@@ -26,6 +26,10 @@ The following SVS was created using this command line:
 `java -jar svsutil.jar colorutil -q80 -s1 -t24 test_slide_small.svs`
   
 ![example of a recolored SVS in ImageScope](recolor_example.png)
+
+Although it is obvious to say this, I have found that the best performance is achieved with more recent OpenJDK releases on CPUs with many cores. All SVS file operations are performed in-memory, so it may be necessary to increase your Java heap size for large files. For example, the following command line uses OpenJDK 17 with a 4GB heap and runs in 24 concurrent threads:
+
+`/usr/lib/jvm/java-17-openjdk-amd64/bin/java -Djava.awt.headless=true -Dawt.toolkit=sun.awt.HToolkit -Xms4G -Xmx4G -jar svsutil.jar colorutil -t24 -s1 test_slide.svs`
 
 ## Label Utility
 
