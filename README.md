@@ -7,8 +7,9 @@ This is a Java project that builds an executable JAR with Maven (i.e., "mvn pack
 
 ## Recolor Utility
 
-This utility recolors the image tiles in an SVS file using the ICC profile embedded in the SVS metadata.
+This utility recolors the image tiles in an SVS file using the International Color Consortium (ICC) profile embedded in the SVS metadata.
 This might be useful when you need to render an SVS file using an application that is not color-managed.
+To be clear, any software rendering an SVS file should respect the ICC profile in the SVS metadata and perform these color corrections automatically, but I have found that some software that renders SVS files does not respect the ICC profile in the SVS metadata and renders the compressed color gamut of the scanner instead of the full sRGB color gamut you'd like to see.
 
 The positions of the TIFF headers and contiguous blocks of tiles in the SVS file are maintained.
 The recolored SVS file is the same size as the original SVS file.
