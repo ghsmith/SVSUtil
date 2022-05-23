@@ -42,11 +42,11 @@ public class LabelUtil {
         optionExtract.setRequired(false);
         options.addOption(optionExtract);
 
-        Option optionAnnotate = new Option("a", "annotate", true, String.format("add string annotation to label (e.g., -a \"test annotation\""));
+        Option optionAnnotate = new Option("a", "annotate", true, String.format("add string annotation to label (e.g., -a \"test annotation\")"));
         optionAnnotate.setRequired(false);
         options.addOption(optionAnnotate);
         
-        Option optionReplace = new Option("r", "replace", true, String.format("replace label entirely (e.g., -r \"study set #1<br/>case#2\""));
+        Option optionReplace = new Option("r", "replace", true, String.format("replace label entirely (e.g., -r \"study set #1<br/>case#2\")"));
         optionReplace.setRequired(false);
         options.addOption(optionReplace);
         
