@@ -12,7 +12,7 @@ These utilities have only been tested with SVS files acquired on a Leica/Aperio 
 
 The ICC profiles in #0 - #4 are identical and primarily consist of a 103 x 103 x 103 color lookup table (CLUT). Since the ICC profiles are identical, "colorutil" uses the ICC profile in #0 for all color correction operations. All JPG encoding/decoding and color transformations are performed using standard Java API calls. I believe modern OpenJDK versions use the well-respected Little-CMS color management system.
 
-If you try them on an SVS file created by another Leica/Aperio scanner model, and something doesn't work, let me know (geoffrey.smith@emory.edu) and I'll work on it!
+If you try these utilities on an SVS file created by another Leica/Aperio scanner model and/or something doesn't work, let me know (geoffrey.smith@emory.edu) and I'll work on it!
 
 This is a Java project that builds an executable JAR with Maven (i.e., "mvn package").
 
