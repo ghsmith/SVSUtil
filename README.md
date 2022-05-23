@@ -1,6 +1,7 @@
 # SVS Utilities
 
 These utility has only been tested with SVS files acquired on a Leica/Aperio GT450 scanner.
+If you try it on an SVS file created by another Leica/Aperio scanner model, and it doesn't work, let me know (geoffrey.smith@emory.edu) and I'll work on it!
 
 This is a Java project that builds with Maven (i.e., "mvn package").
 
@@ -41,6 +42,8 @@ The following SVS was created using this command line:
 `java -jar svsutil.jar labelutil -a "WARN: IQ_FOCUS" test_slide_small.svs`
   
 ![example of an annotated SVS label in ImageScope](annotate_example.png)
+
+The following SVS was created using this command line:
 
 `java -jar svsutil.jar labelutil -r "Dr. Schiznits<br/>Study Set #1<br/>Case #3" test_slide_small.svs`
   
