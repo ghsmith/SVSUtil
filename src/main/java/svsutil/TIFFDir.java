@@ -35,24 +35,50 @@ import java.util.logging.Logger;
  * @author geoffrey.smith@emory.edu
  */
 public class TIFFDir {
+    
+    public class TIFFTag {
+
+        // values
+        int tagName = -1;
+        int dataType = -1;
+        int elementCount = -1;
+        long elementValue = -1;
+        boolean elementValueIsAnOffset = false;
+        byte[] dereferencedElementBytes = null;
+        boolean dereferencedElementBytesAreOffsets = false;
+        long[] deferencedElementsAsLongArray = null;
+        
+        // offsets in TIFF directory header
+        long osTagName = -1;
+        long osDataType = -1;
+        long osElementCount =-1;
+        long osElementValue = -1;
+        
+        // offsets not in TIFF directory header
+        long[] osDereferencedElementsAsLongArray = null;
+        
+    }
 
     static final Logger logger = Logger.getLogger(TIFFDir.class.getName());    
-    
-    public SVSFile svsFile;
+
+    public List<TIFFTag> tiffTagList = new ArrayList<>();
     
     public long offsetInSvs = -1;
     public long tagNextDirOffsetInSvs = -1;
     public int tagNumberOfTags = -1;
-    public int tagICCNameOffsetInHeader = -1;
     public long tagICCOffsetInSvs = -1;
     public int tagICCLength = -1;
-    
+
     public long imageDataOffsetInSvs = -1;
     public long imageDataLength = -1;
     public int imageDataLengthOffsetInHeader = -1;
     public int subfileType = -1;
     public int width = -1;
     public int height = -1;
+
+    // this is needed to "clobber" the ICC to prevent double-color-correction
+    // (i.e., by this utility and then by a client rendering the SVS)
+    public int tagICCNameOffsetInHeader = -1;
     
     List<TiffTileContig> tileContigList = new ArrayList<>();
 
@@ -64,7 +90,6 @@ public class TIFFDir {
         long[] tagTileLengthsOffsetInSvs = null;
         
         {
-            this.svsFile = svsFile;
             this.offsetInSvs = offsetInSvs;
             long currentOffsetInHeader = 0;
             tagNumberOfTags = (int)ByteUtil.bytesToLong(svsFile.getBytes(offsetInSvs + currentOffsetInHeader, offsetInSvs + currentOffsetInHeader + 0x0000008));
