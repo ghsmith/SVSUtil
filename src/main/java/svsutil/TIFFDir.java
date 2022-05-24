@@ -37,6 +37,8 @@ import java.util.logging.Logger;
  */
 public class TIFFDir {
     
+    static final Logger logger = Logger.getLogger(TIFFDir.class.getName());    
+
     public class TIFFTag {
         int name = -1;
         int dataType = -1;
@@ -74,8 +76,6 @@ public class TIFFDir {
         long osElementValue;
     }
     
-    static final Logger logger = Logger.getLogger(TIFFDir.class.getName());    
-
     public Map<Integer, TIFFTag> tiffTagMap = new LinkedHashMap<>();
     
     // these are in all TIFF directories
