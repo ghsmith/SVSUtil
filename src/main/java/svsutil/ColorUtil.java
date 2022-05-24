@@ -88,7 +88,7 @@ public class ColorUtil {
         
         final SVSFile svsFile = new SVSFile(cmd.getArgs()[0]);
 
-        svsFile.computeLut();
+        svsFile.computeLut(threads);
         
         logger.log(Level.INFO, String.format("recoloring tiles in %d threads", threads));
 
