@@ -14,13 +14,20 @@ To be clear, any software rendering an SVS file should respect the ICC profile i
 
 The positions of the TIFF headers and contiguous blocks of tiles in the SVS file are maintained.
 The recolored SVS file is the same size as the original SVS file.
-If the recolored tiles do not fit into the space avaialble in the SVS file, reducing the JPEG compression quality by one (e.g., from 87 to 86) usually allows the recolored tiles to fit into the space available.
+If the recolored tiles do not fit into the space avaialble in the SVS file, either use the resize option or reducing the JPEG compression quality by one (e.g., from 87 to 86), which usually allows the recolored tiles to fit into the space available.
 
 ```
-usage: java -jar svsutil.jar colorutil [options] svs_file_name  
--q,--quality <arg>   JPEG compression quality, integer 0 - 100 (default = 87)  
--s,--skip <arg>      skip this many tiles when recoloring; used to create interesting patterns of raw/recolored tiles, integer (default = 0)  
--t,--threads <arg>   number of parallel threads, integer (default = 4)
+usage: java -jar svsutil.jar colorutil [options] svs_file_name
+ -n,--norecolor       if specified, tiles are rewritten at specified
+                      quality, but not recolored (default = do recolor)
+ -q,--quality <arg>   JPEG compression quality, integer 0 - 100 (default =
+                      87)
+ -r,--resize          if specified, allow program to resize the SVS file
+                      (default = do not resize file)
+ -s,--skip <arg>      skip this many tiles when recoloring; used to create
+                      interesting patterns of raw/recolored tiles, integer
+                      (default = 0)
+ -t,--threads <arg>   number of parallel threads, integer (default = 4)
 ```
 
 The following SVS was created using this command line:
@@ -39,10 +46,12 @@ This utility manipulates the label in an SVS file.
 
 ```
 usage: java -jar svsutil.jar labelutil [options] svs_file_name
- -a,--annotate <arg>   add string annotation to label (e.g., -a "test annotation)"
- -r,--replace <arg>    replace label entirely (e.g., -r "study set #1<br/>case#2)"
+ -a,--annotate <arg>   add string annotation to label (e.g., -a "test
+                       annotation")
+ -r,--replace <arg>    replace label entirely (e.g., -r "study set
+                       #1<br/>case#2")
  -x,--extract          extract label to JPG
- ```
+```
 The following SVS was created using this command line:
 
 `java -jar svsutil.jar labelutil -a "WARN: IQ_FOCUS" test_slide_small.svs`
