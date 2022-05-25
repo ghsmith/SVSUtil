@@ -50,8 +50,10 @@ usage: java -jar svsutil.jar labelutil [options] svs_file_name
                        annotation")
  -m,--monochrome       if specified, any label written to SVS is converted
                        to monochrome (default = do not use monochrome)
- -r,--replace <arg>    replace label entirely (e.g., -r "study set
-                       #1<br/>case#2")
+ -r,--resize           if specified, allow program to resize the SVS file
+                       (default = do not resize file)
+ -s,--string <arg>     replace label entirely with a string (e.g., -r
+                       "study set #1<br/>case#2")
  -x,--extract          extract label to JPG
 ```
 The following SVS was created using this command line:
@@ -62,7 +64,7 @@ The following SVS was created using this command line:
 
 The following SVS was created using this command line:
 
-`java -jar svsutil.jar labelutil -r "Dr. Schiznits<br/>Study Set #1<br/>Case #3" test_slide_small.svs`
+`java -jar svsutil.jar labelutil -s "Dr. Schiznits<br/>Study Set #1<br/>Case #3" test_slide_small.svs`
   
 ![example of a replaced SVS label in ImageScope](relabel_example.png)
 
