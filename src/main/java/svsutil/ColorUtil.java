@@ -31,6 +31,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.logging.Level;
 import java.util.logging.Logger;
+import java.util.stream.Collectors;
 import org.apache.commons.cli.CommandLine;
 import org.apache.commons.cli.CommandLineParser;
 import org.apache.commons.cli.DefaultParser;
@@ -148,16 +149,13 @@ public class ColorUtil {
 
         {
 // ^^ resize logic ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-            List<Long> collapseStartList = new ArrayList<>();
-            List<Long> collapseLengthList = new ArrayList<>();
+            List<SVSFile.ResizeSegment> resizeSegmentList = new ArrayList<>();
 // ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
             for(int x = 0; x < svsFile.tiffDirList.size(); x++) {
                 TIFFDir tiffDir = svsFile.tiffDirList.get(x);
                 if(tiffDir.tileContigList.isEmpty()) {
                     continue;
                 }
-                svsFile.setByte(tiffDir.offsetInSvs + tiffDir.tagICCNameOffsetInHeader + 0, (byte)0xff); // clobber ICC in the TIFF directory
-                svsFile.setByte(tiffDir.offsetInSvs + tiffDir.tagICCNameOffsetInHeader + 1, (byte)0xff); // clobber ICC in the TIFF directory
                 int bytesAvailable = 0;
                 int bytesRequired = 0;
                 for(int y = tiffDir.tileContigList.size() - 1; y >= 0; y--) {
@@ -168,15 +166,36 @@ public class ColorUtil {
                         bytesRequired += tileContig.recoloredTileBytesMap.get(z).length;
                     }
                 }
-// ^^ resize logic ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-                collapseStartList.add(tiffDir.tileContigList.get(tiffDir.tileContigList.size() - 1).offsetInSvs + bytesRequired);
-                collapseLengthList.add((long)(bytesAvailable - bytesRequired));
-// ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-                if(bytesRequired > bytesAvailable) {
-                    logger.log(Level.SEVERE, String.format("error writing TIFF directory %d image tiles: %d bytes are available but %d bytes are required - reduce JPEG compression quality", x, bytesAvailable, bytesRequired));
+                if(bytesRequired > bytesAvailable && !resizeFile) {
+                    logger.log(Level.SEVERE, String.format("error writing TIFF directory %d image tiles: %d bytes are available but %d bytes are required - use resize option or reduce JPEG compression quality", x, bytesAvailable, bytesRequired));
                     System.exit(1);
                 }
-                logger.log(Level.INFO, String.format("writing TIFF directory %d image tiles: %d bytes are available and %d bytes are required (%4.1f%% utilization)", x, bytesAvailable, bytesRequired, 100f * bytesRequired / bytesAvailable));
+// ^^ resize logic ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+                // negative length = compress file (remove these bytes)
+                // positive length = expand file
+                if(resizeFile) {
+                    SVSFile.ResizeSegment resizeSegment = new SVSFile.ResizeSegment(-1, bytesRequired - bytesAvailable);
+                    resizeSegmentList.add(resizeSegment);
+                    if(bytesRequired < bytesAvailable) {
+                        resizeSegment.start = tiffDir.tileContigList.get(tiffDir.tileContigList.size() - 1).offsetInSvs + bytesRequired;
+                    }
+                    else if(bytesRequired > bytesAvailable) {
+                        resizeSegment.start = tiffDir.tileContigList.get(tiffDir.tileContigList.size() - 1).offsetInSvs + bytesAvailable;
+                        
+                    }
+                }
+// ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+            }    
+// ^^ resize logic ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+            // do segment expansions before writing the new image tiles...
+            if(resizeFile) { svsFile.resize(resizeSegmentList.stream().filter(x -> x.length > 0).collect(Collectors.toList())); }
+// ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+            for(int x = 0; x < svsFile.tiffDirList.size(); x++) {
+                TIFFDir tiffDir = svsFile.tiffDirList.get(x);
+                if(tiffDir.tileContigList.isEmpty()) {
+                    continue;
+                }
+                logger.log(Level.INFO, String.format("writing TIFF directory %d image tiles", x));
                 long tileOffsetInSvs = tiffDir.tileContigList.get(tiffDir.tileContigList.size() - 1).tagTileOffsetsInSvs[0];
                 for(int y = tiffDir.tileContigList.size() - 1; y >= 0; y--) {
                     // tile contigs appear in reverse order (i.e., bottom row first, left-to-right, then next row up, etc.)
@@ -190,13 +209,19 @@ public class ColorUtil {
                     }
                 }
             }
-// ^^ resize logic ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-            if(resizeFile) {
-                svsFile.collapse(
-                    collapseStartList.stream().mapToLong(Long::longValue).toArray(),
-                    collapseLengthList.stream().mapToLong(Long::longValue).toArray()
-                );
+            // clobber ICC in the TIFF directory by changing its tag name to garbage
+            if(!noRecolor) {
+                for(int x = 0; x < svsFile.tiffDirList.size(); x++) {
+                    TIFFDir tiffDir = svsFile.tiffDirList.get(x);
+                    if(tiffDir.tagICCOffsetInSvs != -1) {
+                        svsFile.setByte(tiffDir.offsetInSvs + tiffDir.tagICCNameOffsetInHeader + 0, (byte)0xff);
+                        svsFile.setByte(tiffDir.offsetInSvs + tiffDir.tagICCNameOffsetInHeader + 1, (byte)0xff);
+                    }
+                }
             }
+// ^^ resize logic ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+            // ...and do segment compressions after writing the new image tiles
+            if(resizeFile) { svsFile.resize(resizeSegmentList.stream().filter(x -> x.length < 0).collect(Collectors.toList())); }
 // ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
             svsFile.write((new File(svsFile.svsFileName)).getName().replaceAll(".svs$", "_recolored.svs"));
             logger.log(Level.INFO, String.format("recolored slide written to %s in current directory", (new File(svsFile.svsFileName)).getName().replaceAll(".svs$", "_recolored.svs")));

@@ -76,6 +76,8 @@ public class TIFFDir {
         long osElementValue;
     }
     
+    String id = null;
+        
     public Map<Integer, TIFFTag> tiffTagMap = new LinkedHashMap<>();
     
     // these are in all TIFF directories
@@ -110,8 +112,10 @@ public class TIFFDir {
     // use a single tile-contig and this isn't an issue
     public List<TIFFTileContig> tileContigList = new ArrayList<>();
 
-    public TIFFDir(SVSFile svsFile, long offsetInSvs) {
+    public TIFFDir(String id, SVSFile svsFile, long offsetInSvs) {
 
+        this.id = id;
+        
         long[] tagTileOffsetsInSvs = null;
         long[] tagTileOffsetsInSvsOffsetInSvs = null;
         int[] tagTileLengths = null;
@@ -239,7 +243,7 @@ public class TIFFDir {
                         break;
                     }
                     default: {
-                        throw new RuntimeException(String.format("error paring TIFF directory header tag #%d", x));
+                        throw new RuntimeException(String.format("error parsing TIFF directory header tag #%d", x));
                     }
                 }
                 while(ByteUtil.bytesToInt(svsFile.getBytes(offsetInSvs + currentOffsetInHeader, offsetInSvs + currentOffsetInHeader + 0x00000002)) == 0) {
@@ -268,18 +272,21 @@ public class TIFFDir {
         }
         
         if(tagTileOffsetsInSvs != null) {
+            int contigIndex = 0;
             int contigStartIndex = 0;
             for(int x = 0; x < tagTileOffsetsInSvs.length; x++) {
                 if(x == tagTileOffsetsInSvs.length - 1 || tagTileOffsetsInSvs[x] + tagTileLengths[x] != tagTileOffsetsInSvs[x + 1]) {
                     long contigEnd = tagTileOffsetsInSvs[x] + tagTileLengths[x];
                     TIFFTileContig tileContig = new TIFFTileContig();
                     tileContigList.add(tileContig);
+                    tileContig.id = id + "." + String.valueOf(contigIndex);
                     tileContig.offsetInSvs = tagTileOffsetsInSvs[contigStartIndex];
                     tileContig.length = (int)(tagTileOffsetsInSvs[x] + tagTileLengths[x] - tagTileOffsetsInSvs[contigStartIndex]);
                     tileContig.tagTileOffsetsInSvs = Arrays.copyOfRange(tagTileOffsetsInSvs, contigStartIndex, x + 1);
                     tileContig.tagTileOffsetsInSvsOffsetInSvs = Arrays.copyOfRange(tagTileOffsetsInSvsOffsetInSvs, contigStartIndex, x + 1);
                     tileContig.tagTileLengths = Arrays.copyOfRange(tagTileLengths, contigStartIndex, x + 1);
                     tileContig.tagTileLengthsOffsetInSvs = Arrays.copyOfRange(tagTileLengthsOffsetInSvs, contigStartIndex, x + 1);
+                    contigIndex++;
                     contigStartIndex = x + 1;
                 }
             }

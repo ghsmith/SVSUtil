@@ -33,12 +33,14 @@ import java.util.concurrent.ConcurrentHashMap;
  */
 public class TIFFTileContig {
     
-    public long offsetInSvs;
-    public int length;
-    public long[] tagTileOffsetsInSvs;
-    public long[] tagTileOffsetsInSvsOffsetInSvs;
-    public int[] tagTileLengths;
-    public long[] tagTileLengthsOffsetInSvs;
+    public String id = null;
+    
+    public long offsetInSvs = -1;
+    public int length = -1;
+    public long[] tagTileOffsetsInSvs = null;
+    public long[] tagTileOffsetsInSvsOffsetInSvs = null;
+    public int[] tagTileLengths = null;
+    public long[] tagTileLengthsOffsetInSvs = null;
     
     Map<Integer, byte[]> recoloredTileBytesMap = new ConcurrentHashMap<>();
     
