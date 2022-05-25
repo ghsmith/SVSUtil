@@ -14,7 +14,7 @@ To be clear, any software rendering an SVS file should respect the ICC profile i
 
 The positions of the TIFF headers and contiguous blocks of tiles in the SVS file are maintained.
 The recolored SVS file is the same size as the original SVS file.
-If the recolored tiles do not fit into the space avaialble in the SVS file, either use the resize option or reducing the JPEG compression quality by one (e.g., from 87 to 86), which usually allows the recolored tiles to fit into the space available.
+If the recolored tiles do not fit into the space avaialble in the SVS file, either use the resize option or reduce the JPEG compression quality by one (e.g., from 87 to 86), which usually allows the recolored tiles to fit into the space available.
 
 ```
 usage: java -jar svsutil.jar colorutil [options] svs_file_name
