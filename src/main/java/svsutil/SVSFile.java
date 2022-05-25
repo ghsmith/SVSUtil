@@ -70,7 +70,7 @@ public class SVSFile {
     public static final int G = 1;
     public static final int B = 2;
 
-    public static final long NO_MORE_TIFF_DIRECTORIES_OFFSET = 0x72657041;
+    public static final long NO_MORE_TIFF_DIRECTORIES_OFFSET = 0x0000000000000000L;
     
     public String svsFileName;
     public long length = -1;
@@ -316,21 +316,25 @@ public class SVSFile {
         svsBytesList.get((int)(index / BUFFER_SIZE))[(int)(index % BUFFER_SIZE)] = val;
     }
 
-    // this needs to be adjusted for 64-bits
     public long getBytesAsLong(long index) {
         return (long)
-              ((getByte(index + 0) & 0x000000ff) <<  0)
-            | ((getByte(index + 1) & 0x000000ff) <<  8)
-            | ((getByte(index + 2) & 0x000000ff) << 16)
-            | ((getByte(index + 3) & 0x000000ff) << 24);
+              ((((long)getByte(index + 0)) & 0x00000000000000ffL) <<  0)
+            | ((((long)getByte(index + 1)) & 0x00000000000000ffL) <<  8)
+            | ((((long)getByte(index + 2)) & 0x00000000000000ffL) << 16)
+            | ((((long)getByte(index + 3)) & 0x00000000000000ffL) << 24)
+            | ((((long)getByte(index + 4)) & 0x00000000000000ffL) << 32)
+            | ((((long)getByte(index + 5)) & 0x00000000000000ffL) << 40)
+            | ((((long)getByte(index + 6)) & 0x00000000000000ffL) << 48);
     }
     
-    // this needs to be adjusted for 64-bits
     public void setBytesToLong(long index, long val) {
-        setByte(index + 0, (byte)(((val) & 0x000000ff) >>  0));
-        setByte(index + 1, (byte)(((val) & 0x0000ff00) >>  8));
-        setByte(index + 2, (byte)(((val) & 0x00ff0000) >> 16));
-        setByte(index + 3, (byte)(((val) & 0xff000000) >> 24));
+        setByte(index + 0, (byte)(((val) & 0x00000000000000ffL) >>  0));
+        setByte(index + 1, (byte)(((val) & 0x000000000000ff00L) >>  8));
+        setByte(index + 2, (byte)(((val) & 0x0000000000ff0000L) >> 16));
+        setByte(index + 3, (byte)(((val) & 0x00000000ff000000L) >> 24));
+        setByte(index + 4, (byte)(((val) & 0x00000000ff000000L) >> 32));
+        setByte(index + 5, (byte)(((val) & 0x00000000ff000000L) >> 40));
+        setByte(index + 6, (byte)(((val) & 0x00000000ff000000L) >> 48));
     }
     
 }

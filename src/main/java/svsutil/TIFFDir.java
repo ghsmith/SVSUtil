@@ -171,6 +171,9 @@ public class TIFFDir {
                             tiffTag.osElementValues[y] = offsetInSvs + currentOffsetInHeader;
                             currentOffsetInHeader += 0x00000002;
                         }
+                        // improve this... makes sure we land on a word boundary
+                        if(tiffTag.length == 1) { currentOffsetInHeader += 0x00000006; }
+                        if(tiffTag.length == 3) { currentOffsetInHeader += 0x00000002; }
                         break;
                     }
                     case 2: {
@@ -245,9 +248,6 @@ public class TIFFDir {
                     default: {
                         throw new RuntimeException(String.format("error parsing TIFF directory header tag #%d", x));
                     }
-                }
-                while(ByteUtil.bytesToInt(svsFile.getBytes(offsetInSvs + currentOffsetInHeader, offsetInSvs + currentOffsetInHeader + 0x00000002)) == 0) {
-                    currentOffsetInHeader += 0x00000002;
                 }
             }
             tagNextDirOffsetInSvs = ByteUtil.bytesToLong(svsFile.getBytes(offsetInSvs + currentOffsetInHeader, offsetInSvs + currentOffsetInHeader + 0x00000008));

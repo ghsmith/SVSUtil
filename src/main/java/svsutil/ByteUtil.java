@@ -34,20 +34,20 @@ public class ByteUtil {
     
     // least significant byte first (TIFF)
     public static long bytesToLong(byte[] bs) {
-        long val = 0;
-        val = (long)bs[0] <<  0 & (long)0x000000ff
-            | (long)bs[1] <<  8 & (long)0x0000ff00
-            | (long)bs[2] << 16 & (long)0x00ff0000
-            | (long)bs[3] << 24 & (long)0xff000000
-            | (long)bs[4] << 32 & (long)0x000000ff <<  8
-            | (long)bs[5] << 40 & (long)0x0000ff00 << 16
-            | (long)bs[6] << 48 & (long)0x00ff0000 << 24;
+        long val = -1;
+        val = ((long)bs[0]) <<  0 & 0x00000000000000ffL
+            | ((long)bs[1]) <<  8 & 0x000000000000ff00L
+            | ((long)bs[2]) << 16 & 0x0000000000ff0000L
+            | ((long)bs[3]) << 24 & 0x00000000ff000000L
+            | ((long)bs[4]) << 32 & 0x000000ff00000000L
+            | ((long)bs[5]) << 40 & 0x0000ff0000000000L
+            | ((long)bs[6]) << 48 & 0x00ff000000000000L;
         return val;
     }
 
     // least significant byte first (TIFF)
     public static int bytesToInt(byte[] bs) {
-        int val = 0;
+        int val = -1;
         val = (int)bs[0] <<  0 & (int)0x000000ff
             | (int)bs[1] <<  8 & (int)0x0000ff00;
         return val;
