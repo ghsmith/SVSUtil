@@ -82,6 +82,7 @@ public class TIFFDir {
     public long offsetInSvs = -1;
     public int tagNumberOfTags = -1;
     public long tagNextDirOffsetInSvs = -1;
+    public long tagNextDirOffsetInSvsOffsetInSvs = -1;
     public int subfileType = -1;
     public int width = -1;
     public int height = -1;
@@ -107,7 +108,7 @@ public class TIFFDir {
     // bottom-row-to-top-row and then left-to-right (i.e., the reverse of the
     // order the contigs appear in this list); all of the other TIFF directories
     // use a single tile-contig and this isn't an issue
-    public List<TiffTileContig> tileContigList = new ArrayList<>();
+    public List<TIFFTileContig> tileContigList = new ArrayList<>();
 
     public TIFFDir(SVSFile svsFile, long offsetInSvs) {
 
@@ -246,6 +247,7 @@ public class TIFFDir {
                 }
             }
             tagNextDirOffsetInSvs = ByteUtil.bytesToLong(svsFile.getBytes(offsetInSvs + currentOffsetInHeader, offsetInSvs + currentOffsetInHeader + 0x00000008));
+            tagNextDirOffsetInSvsOffsetInSvs = offsetInSvs + currentOffsetInHeader;
             currentOffsetInHeader += 0x00000008;
         }
 
@@ -270,7 +272,7 @@ public class TIFFDir {
             for(int x = 0; x < tagTileOffsetsInSvs.length; x++) {
                 if(x == tagTileOffsetsInSvs.length - 1 || tagTileOffsetsInSvs[x] + tagTileLengths[x] != tagTileOffsetsInSvs[x + 1]) {
                     long contigEnd = tagTileOffsetsInSvs[x] + tagTileLengths[x];
-                    TiffTileContig tileContig = new TiffTileContig();
+                    TIFFTileContig tileContig = new TIFFTileContig();
                     tileContigList.add(tileContig);
                     tileContig.offsetInSvs = tagTileOffsetsInSvs[contigStartIndex];
                     tileContig.length = (int)(tagTileOffsetsInSvs[x] + tagTileLengths[x] - tagTileOffsetsInSvs[contigStartIndex]);

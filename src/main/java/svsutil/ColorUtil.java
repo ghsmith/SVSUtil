@@ -27,6 +27,8 @@ package svsutil;
 import java.io.File;
 import java.io.FileNotFoundException;
 import java.io.IOException;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 import org.apache.commons.cli.CommandLine;
@@ -50,6 +52,8 @@ public class ColorUtil {
         int threads = 4;
         int quality = 87;
         int skip = 0;
+        boolean noRecolor = false;
+        boolean resizeFile = false;
 
         Options options = new Options();
 
@@ -68,6 +72,14 @@ public class ColorUtil {
         optionSkip.setType(Number.class);
         options.addOption(optionSkip);
 
+        Option optionNoRecolor = new Option("n", "norecolor", false, String.format("if specified, tiles are rewritten at specified quality, but not recolored (default = do recolor)"));
+        optionNoRecolor.setRequired(false);
+        options.addOption(optionNoRecolor);
+
+        Option optionResize = new Option("r", "resize", false, String.format("if specified, allow program to resize the SVS file (default = do not resize file)"));
+        optionResize.setRequired(false);
+        options.addOption(optionResize);
+
         CommandLineParser parser = new DefaultParser();
         HelpFormatter formatter = new HelpFormatter();
         CommandLine cmd = null; //not a good practice, it serves it purpose 
@@ -77,6 +89,8 @@ public class ColorUtil {
             if(cmd.hasOption(optionThreads)) { threads = ((Long)cmd.getParsedOptionValue(optionThreads)).intValue(); }
             if(cmd.hasOption(optionQuality)) { quality = ((Long)cmd.getParsedOptionValue(optionQuality)).intValue(); }
             if(cmd.hasOption(optionSkip)) { skip = ((Long)cmd.getParsedOptionValue(optionSkip)).intValue(); }
+            if(cmd.hasOption(optionNoRecolor)) { noRecolor = true; }
+            if(cmd.hasOption(optionResize)) { resizeFile = true; }
             if(cmd.getArgs().length != 1) { throw new ParseException("no file specified"); }
             if(!cmd.getArgs()[0].toLowerCase().endsWith(".svs")) { throw new ParseException("file name must have a 'svs' extension"); }
         }
@@ -99,7 +113,7 @@ public class ColorUtil {
                 for(int x = 0; x < svsFile.tiffDirList.size(); x++) {
                     TIFFDir tiffDir = svsFile.tiffDirList.get(x);
                     for(int y = 0; y < tiffDir.tileContigList.size(); y++) {
-                        TiffTileContig tileContig = tiffDir.tileContigList.get(y);
+                        TIFFTileContig tileContig = tiffDir.tileContigList.get(y);
                         for(int z = 0; z < tileContig.tagTileOffsetsInSvs.length; z++) {
                             tileCount++;
                         }
@@ -123,7 +137,7 @@ public class ColorUtil {
 
         Thread[] recolorThreads = new Thread[threads];
         for(int x = 0; x < threads; x++) {
-            recolorThreads[x] = new Thread(new RecolorRunner(svsFile, quality, skip));
+            recolorThreads[x] = new Thread(new RecolorRunner(svsFile, quality, skip, noRecolor));
             recolorThreads[x].start();
         }
         for(int x = 0; x < threads; x++) {
@@ -133,6 +147,10 @@ public class ColorUtil {
         statusThread.interrupt();
 
         {
+// ^^ resize logic ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+            List<Long> collapseStartList = new ArrayList<>();
+            List<Long> collapseLengthList = new ArrayList<>();
+// ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
             for(int x = 0; x < svsFile.tiffDirList.size(); x++) {
                 TIFFDir tiffDir = svsFile.tiffDirList.get(x);
                 if(tiffDir.tileContigList.isEmpty()) {
@@ -144,12 +162,16 @@ public class ColorUtil {
                 int bytesRequired = 0;
                 for(int y = tiffDir.tileContigList.size() - 1; y >= 0; y--) {
                     // tile contigs appear in reverse order (i.e., bottom row first, left-to-right, then next row up, etc.)
-                    TiffTileContig tileContig = tiffDir.tileContigList.get(y);
+                    TIFFTileContig tileContig = tiffDir.tileContigList.get(y);
                     for(int z = 0; z < tileContig.tagTileOffsetsInSvs.length; z++) {
                         bytesAvailable += tileContig.tagTileLengths[z];
                         bytesRequired += tileContig.recoloredTileBytesMap.get(z).length;
                     }
                 }
+// ^^ resize logic ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+                collapseStartList.add(tiffDir.tileContigList.get(tiffDir.tileContigList.size() - 1).offsetInSvs + bytesRequired);
+                collapseLengthList.add((long)(bytesAvailable - bytesRequired));
+// ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
                 if(bytesRequired > bytesAvailable) {
                     logger.log(Level.SEVERE, String.format("error writing TIFF directory %d image tiles: %d bytes are available but %d bytes are required - reduce JPEG compression quality", x, bytesAvailable, bytesRequired));
                     System.exit(1);
@@ -158,22 +180,24 @@ public class ColorUtil {
                 long tileOffsetInSvs = tiffDir.tileContigList.get(tiffDir.tileContigList.size() - 1).tagTileOffsetsInSvs[0];
                 for(int y = tiffDir.tileContigList.size() - 1; y >= 0; y--) {
                     // tile contigs appear in reverse order (i.e., bottom row first, left-to-right, then next row up, etc.)
-                    TiffTileContig tileContig = tiffDir.tileContigList.get(y);
+                    TIFFTileContig tileContig = tiffDir.tileContigList.get(y);
                     for(int z = 0; z < tileContig.tagTileOffsetsInSvs.length; z++) {
                         byte[] tileBytes = tileContig.recoloredTileBytesMap.get(z);
-                        svsFile.setByte(tileContig.tagTileOffsetsInSvsOffsetInSvs[z] + 0, (byte)(((tileOffsetInSvs) & 0x000000ff) >>  0));
-                        svsFile.setByte(tileContig.tagTileOffsetsInSvsOffsetInSvs[z] + 1, (byte)(((tileOffsetInSvs) & 0x0000ff00) >>  8));
-                        svsFile.setByte(tileContig.tagTileOffsetsInSvsOffsetInSvs[z] + 2, (byte)(((tileOffsetInSvs) & 0x00ff0000) >> 16));
-                        svsFile.setByte(tileContig.tagTileOffsetsInSvsOffsetInSvs[z] + 3, (byte)(((tileOffsetInSvs) & 0xff000000) >> 24));
-                        svsFile.setByte(tileContig.tagTileLengthsOffsetInSvs[z] + 0, (byte)(((tileBytes.length) & 0x000000ff) >>  0));
-                        svsFile.setByte(tileContig.tagTileLengthsOffsetInSvs[z] + 1, (byte)(((tileBytes.length) & 0x0000ff00) >>  8));
-                        svsFile.setByte(tileContig.tagTileLengthsOffsetInSvs[z] + 2, (byte)(((tileBytes.length) & 0x00ff0000) >> 16));
-                        svsFile.setByte(tileContig.tagTileLengthsOffsetInSvs[z] + 3, (byte)(((tileBytes.length) & 0xff000000) >> 24));
+                        svsFile.setBytesToLong(tileContig.tagTileOffsetsInSvsOffsetInSvs[z], tileOffsetInSvs);
+                        svsFile.setBytesToLong(tileContig.tagTileLengthsOffsetInSvs[z], tileBytes.length);
                         svsFile.setBytes(tileOffsetInSvs, tileOffsetInSvs + tileBytes.length, tileBytes);
                         tileOffsetInSvs += tileBytes.length;
                     }
                 }
             }
+// ^^ resize logic ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+            if(resizeFile) {
+                svsFile.collapse(
+                    collapseStartList.stream().mapToLong(Long::longValue).toArray(),
+                    collapseLengthList.stream().mapToLong(Long::longValue).toArray()
+                );
+            }
+// ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
             svsFile.write((new File(svsFile.svsFileName)).getName().replaceAll(".svs$", "_recolored.svs"));
             logger.log(Level.INFO, String.format("recolored slide written to %s in current directory", (new File(svsFile.svsFileName)).getName().replaceAll(".svs$", "_recolored.svs")));
         }

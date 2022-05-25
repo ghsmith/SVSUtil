@@ -51,8 +51,11 @@ public class SVSFile {
     public static final int G = 1;
     public static final int B = 2;
 
+    public static final long NO_MORE_TIFF_DIRECTORIES_OFFSET = 0x72657041;
+    
     public String svsFileName;
     public long length = -1;
+    public long firstHeaderOffset = -1;
     
     public List<byte[]> svsBytesList = new ArrayList<>();
     public List<TIFFDir> tiffDirList = new ArrayList<>();
@@ -82,23 +85,24 @@ public class SVSFile {
         fis.close();
         
         logger.log(Level.INFO, String.format("read %d Mb from %s into %d buffers", length / (1024 * 1024), svsFileName, svsBytesList.size()));
+        
+        parseTIFFDirTags();
 
-        long offset = ByteUtil.bytesToLong(getBytes(0x00000008, 0x00000010));
-        while(offset != 0x72657041) {
-            logger.log(Level.INFO, String.format("========== parsing TIFF directory #%d header ==========", tiffDirList.size()));
+    }
+
+    public void parseTIFFDirTags() {
+        firstHeaderOffset = getBytesAsLong(0x00000008);
+        long offset = firstHeaderOffset;
+        while(offset != NO_MORE_TIFF_DIRECTORIES_OFFSET) {
+            logger.log(Level.INFO, String.format("========== parsing TIFF directory #%d tags (%d) ==========", tiffDirList.size(), offset));
             TIFFDir tiffDir = new TIFFDir(this, offset);
             tiffDirList.add(tiffDir);
             logger.log(Level.INFO, String.format("width=%d height=%d", tiffDir.width, tiffDir.height));
-            if(!tiffDir.tileContigList.isEmpty()) {
-                if(iccBytes == null && tiffDir.tagICCNameOffsetInHeader != -1) {
-                    if(iccBytes == null) {
-                        iccBytes = getBytes(tiffDir.tagICCOffsetInSvs, tiffDir.tagICCOffsetInSvs + tiffDir.tagICCLength);
-                    }
-                }
+            if(!tiffDir.tileContigList.isEmpty() && tiffDir.tagICCNameOffsetInHeader != -1 && iccBytes == null ) {
+                iccBytes = getBytes(tiffDir.tagICCOffsetInSvs, tiffDir.tagICCOffsetInSvs + tiffDir.tagICCLength);
             }
             offset = tiffDir.tagNextDirOffsetInSvs;
         }
-
     }
     
     public void computeLut(int threads) throws InterruptedException {
@@ -136,6 +140,102 @@ public class SVSFile {
         }
     }
 
+    public void collapse(long[] starts, long[] lengths) {
+
+        logger.log(Level.INFO, String.format("collapsing SVS file"));
+        
+        // 1. update offsets in TIFF headers and referenced tile offset arrays
+        {
+            for(int collapseIndex = 0; collapseIndex < starts.length; collapseIndex++) {
+                long collapseStart = starts[collapseIndex];
+                long collapseLength = lengths[collapseIndex];
+                long collapseEnd = collapseStart + collapseLength;
+                if(firstHeaderOffset > collapseEnd) {
+                    setBytesToLong(0x00000008, getBytesAsLong(0x00000008) - collapseLength);
+                }
+            }
+            for(int x = 0; x < tiffDirList.size(); x++) {
+                TIFFDir tiffDir = tiffDirList.get(x);
+                for(int collapseIndex = 0; collapseIndex < starts.length; collapseIndex++) {
+                    long collapseStart = starts[collapseIndex];
+                    long collapseLength = lengths[collapseIndex];
+                    long collapseEnd = collapseStart + collapseLength;
+                    if(tiffDir.tagNextDirOffsetInSvs != NO_MORE_TIFF_DIRECTORIES_OFFSET && tiffDir.tagNextDirOffsetInSvs >= collapseEnd) {
+                        setBytesToLong(tiffDir.tagNextDirOffsetInSvsOffsetInSvs, getBytesAsLong(tiffDir.tagNextDirOffsetInSvsOffsetInSvs) - collapseLength);
+                    }
+                    for(TIFFDir.TIFFTag tiffTag : tiffDir.tiffTagMap.values()) {
+                        if(tiffTag instanceof TIFFDir.TIFFTagLong) {
+                            TIFFDir.TIFFTagLong tiffTagLong = (TIFFDir.TIFFTagLong)tiffTag;
+                            if(tiffTagLong.name == 273) { // StripOffsets (non-tiled image data)
+                                if(tiffTagLong.elementValues[0] >= collapseEnd) {
+                                    setBytesToLong(tiffTagLong.osElementValues[0], getBytesAsLong(tiffTagLong.osElementValues[0]) - collapseLength);
+                                }
+                            }
+                        }
+                        else if(tiffTag instanceof TIFFDir.TIFFTagASCIIReference) {
+                            TIFFDir.TIFFTagASCIIReference tiffTagASCIIReference = (TIFFDir.TIFFTagASCIIReference)tiffTag;
+                            if(tiffTagASCIIReference.osElementValueDereferenced >= collapseEnd) {
+                                setBytesToLong(tiffTagASCIIReference.osElementValue, getBytesAsLong(tiffTagASCIIReference.osElementValue) - collapseLength);
+                            }
+                        }
+                        else if(tiffTag instanceof TIFFDir.TIFFTagLongArrayReference) {
+                            TIFFDir.TIFFTagLongArrayReference tiffTagLongArrayReference = (TIFFDir.TIFFTagLongArrayReference)tiffTag;
+                            if(tiffTagLongArrayReference.osElementValuesDereferenced[0] >= collapseEnd) {
+                                setBytesToLong(tiffTagLongArrayReference.osElementValue, getBytesAsLong(tiffTagLongArrayReference.osElementValue) - collapseLength);
+                            }
+                            if(tiffTagLongArrayReference.name == 324) { // TileOffsets (tiled image data)
+                                for(int y = 0; y < tiffTagLongArrayReference.elementValuesDereferenced.length; y++) {
+                                    if(tiffTagLongArrayReference.elementValuesDereferenced[y] >= collapseEnd) {
+                                        setBytesToLong(tiffTagLongArrayReference.osElementValuesDereferenced[y], getBytesAsLong(tiffTagLongArrayReference.osElementValuesDereferenced[y]) - collapseLength);
+                                    }
+                                }
+                            }
+                        }
+                        else if(tiffTag instanceof TIFFDir.TIFFTagUndefinedReference) {
+                            TIFFDir.TIFFTagUndefinedReference tiffTagUndefinedReference = (TIFFDir.TIFFTagUndefinedReference)tiffTag;
+                            if(tiffTagUndefinedReference.osElementValueDereferenced >= collapseEnd) {
+                                setBytesToLong(tiffTagUndefinedReference.osElementValue, getBytesAsLong(tiffTagUndefinedReference.osElementValue) - collapseLength);
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        // 2. remove bytes from buffers and reparse TIFF
+        {
+            long lengthCollapsed = length - Arrays.stream(lengths).sum();
+            List<byte[]> svsBytesCollapsedList = new ArrayList<>();
+            for(int x = 0; x < lengthCollapsed / BUFFER_SIZE; x++) {
+                svsBytesCollapsedList.add(new byte[BUFFER_SIZE]);
+            }
+            svsBytesCollapsedList.add(new byte[(int)lengthCollapsed % BUFFER_SIZE]);
+            long indexCollapsed = 0;
+            byte[] svsBytesCollapsed = null;
+            for(long x = 0; x < length; x++) {
+                if(indexCollapsed % BUFFER_SIZE == 0) {
+                    svsBytesCollapsed = svsBytesCollapsedList.get((int)indexCollapsed / BUFFER_SIZE);
+                }
+                for(int y = 0; y < starts.length; y++) {
+                    if(x == starts[y]) {
+                        logger.log(Level.INFO, String.format("skipping %d bytes at position %d", lengths[y], starts[y]));
+                        x += lengths[y];
+                    }
+                }
+                svsBytesCollapsed[(int)(indexCollapsed % BUFFER_SIZE)] = getByte(x);
+                indexCollapsed++;
+            }
+            length = lengthCollapsed;
+            svsBytesList = svsBytesCollapsedList;
+            tiffDirList = new ArrayList<>();
+            parseTIFFDirTags();
+        }
+        
+    }
+
+    public void expand(long[] starts, long[] lengths) {
+    }
+    
     public void write(String svsFileNameNew) throws FileNotFoundException, IOException {
         FileOutputStream fos = new FileOutputStream(svsFileNameNew);
         long bytesLeftToWrite = length;
@@ -170,8 +270,29 @@ public class SVSFile {
         }
     }
 
+    public byte getByte(long index) {
+        return svsBytesList.get((int)(index / BUFFER_SIZE))[(int)(index % BUFFER_SIZE)];
+    }
+    
     public void setByte(long index, byte val) {
         svsBytesList.get((int)(index / BUFFER_SIZE))[(int)(index % BUFFER_SIZE)] = val;
     }
 
+    // this needs to be adjusted for 64-bits
+    public long getBytesAsLong(long index) {
+        return (long)
+              ((getByte(index + 0) & 0x000000ff) <<  0)
+            | ((getByte(index + 1) & 0x000000ff) <<  8)
+            | ((getByte(index + 2) & 0x000000ff) << 16)
+            | ((getByte(index + 3) & 0x000000ff) << 24);
+    }
+    
+    // this needs to be adjusted for 64-bits
+    public void setBytesToLong(long index, long val) {
+        setByte(index + 0, (byte)(((val) & 0x000000ff) >>  0));
+        setByte(index + 1, (byte)(((val) & 0x0000ff00) >>  8));
+        setByte(index + 2, (byte)(((val) & 0x00ff0000) >> 16));
+        setByte(index + 3, (byte)(((val) & 0xff000000) >> 24));
+    }
+    
 }

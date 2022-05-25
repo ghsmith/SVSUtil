@@ -49,11 +49,13 @@ class RecolorRunner implements Runnable {
     public SVSFile svsFile;
     public int quality;
     public int skip;
+    public boolean noRecolor;
 
-    public RecolorRunner(SVSFile svsFile, int quality, int skip) throws InterruptedException {
+    public RecolorRunner(SVSFile svsFile, int quality, int skip, boolean noRecolor) throws InterruptedException {
         this.svsFile = svsFile;
         this.quality = quality;
         this.skip = skip;
+        this.noRecolor = noRecolor;
     }
 
     @Override
@@ -72,7 +74,7 @@ class RecolorRunner implements Runnable {
             for(int x = 0; x < svsFile.tiffDirList.size(); x++) {
                 TIFFDir tiffDir = svsFile.tiffDirList.get(x);
                 for(int y = 0; y < tiffDir.tileContigList.size(); y++) {
-                    TiffTileContig tileContig = tiffDir.tileContigList.get(y);
+                    TIFFTileContig tileContig = tiffDir.tileContigList.get(y);
                     for(int z = 0; z < tileContig.tagTileOffsetsInSvs.length; z++) {
                         tileNo++;
                         synchronized(svsFile.nextTileNo) {
@@ -88,7 +90,9 @@ class RecolorRunner implements Runnable {
                         BufferedImage image = ImageIO.read(is);
                         is.close();
                         image.getRGB(0, 0, 0x100, 0x100, imagePixels, 0, 0x100);
-                        Arrays.parallelSetAll(imagePixels, i -> svsFile.lutUpsampledInt[imagePixels[i] & 0x00ffffff]);
+                        if(!noRecolor) {
+                            Arrays.parallelSetAll(imagePixels, i -> svsFile.lutUpsampledInt[imagePixels[i] & 0x00ffffff]);
+                        }
                         image.setRGB(0, 0, 0x100, 0x100, imagePixels, 0, 0x100);
                         IIOImage outputImage = new IIOImage(image, null, null);
                         baos.reset();
