@@ -227,7 +227,7 @@ public class SVSFile {
             }
         }
 
-        // 2. remove bytes from buffers and reparse TIFF
+        // 2. remove/add bytes from/to buffers and reparse TIFF
         {
             long lengthResized = length + resizeSegmentList.stream().mapToLong(x -> x.length).sum();
             List<byte[]> svsBytesResizedList = new ArrayList<>();

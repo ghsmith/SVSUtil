@@ -35,8 +35,11 @@ import java.io.ByteArrayOutputStream;
 import java.io.File;
 import java.io.IOException;
 import java.nio.ByteBuffer;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.logging.Level;
 import java.util.logging.Logger;
+import java.util.stream.Collectors;
 import javax.imageio.ImageIO;
 import org.apache.commons.cli.CommandLine;
 import org.apache.commons.cli.CommandLineParser;
@@ -59,6 +62,8 @@ public class LabelUtil {
         boolean extract = false;
         String annotation = null;
         String replacement = null;
+        boolean monochrome = false;
+        boolean resizeFile = false;
                 
         Options options = new Options();
 
@@ -70,9 +75,17 @@ public class LabelUtil {
         optionAnnotate.setRequired(false);
         options.addOption(optionAnnotate);
         
-        Option optionReplace = new Option("r", "replace", true, String.format("replace label entirely (e.g., -r \"study set #1<br/>case#2\")"));
+        Option optionReplace = new Option("s", "string", true, String.format("replace label entirely with a string (e.g., -r \"study set #1<br/>case#2\")"));
         optionReplace.setRequired(false);
         options.addOption(optionReplace);
+
+        Option optionMonochrome = new Option("m", "monochrome", false, String.format("if specified, any label written to SVS is converted to monochrome (default = do not use monochrome)"));
+        optionMonochrome.setRequired(false);
+        options.addOption(optionMonochrome);
+        
+        Option optionResize = new Option("r", "resize", false, String.format("if specified, allow program to resize the SVS file (default = do not resize file)"));
+        optionResize.setRequired(false);
+        options.addOption(optionResize);
         
         CommandLineParser parser = new DefaultParser();
         HelpFormatter formatter = new HelpFormatter();
@@ -83,6 +96,8 @@ public class LabelUtil {
             if(cmd.hasOption(optionExtract)) { extract = true; }
             if(cmd.hasOption(optionAnnotate)) { annotation = cmd.getOptionValue(optionAnnotate); }
             if(cmd.hasOption(optionReplace)) { replacement = cmd.getOptionValue(optionReplace); }
+            if(cmd.hasOption(optionMonochrome)) { monochrome = true; }
+            if(cmd.hasOption(optionResize)) { resizeFile = true; }
             if(cmd.getArgs().length != 1) { throw new ParseException("no file specified"); }
             if(!cmd.getArgs()[0].toLowerCase().endsWith(".svs")) { throw new ParseException("file name must have a 'svs' extension"); }
         }
@@ -104,14 +119,23 @@ public class LabelUtil {
                     Decoder lzwDecoder = LZWDecoder.create(false);
                     lzwDecoder.decode(bis, bb);
                     bb.flip();
-                    BufferedImage image = new BufferedImage(tiffDir.width, tiffDir.height, BufferedImage.TYPE_3BYTE_BGR);
+                    BufferedImage image = null;
+                    // using monochrome for the label to keep the size small,
+                    // otherwise it might not fit in the available space and
+                    // most labels are monochrome, anyway
+                    if(monochrome) {
+                        image = new BufferedImage(tiffDir.width, tiffDir.height, BufferedImage.TYPE_BYTE_BINARY);
+                    }
+                    else {
+                        image = new BufferedImage(tiffDir.width, tiffDir.height, BufferedImage.TYPE_3BYTE_BGR);
+                    }
                     for(int y = 0; y < tiffDir.height; y++){
                         byte r = bb.get();
                         byte g = bb.get();
                         byte b = bb.get();
                         image.setRGB(0, y, 0xff000000 | (r & 0x000000ff) << 16 | (g & 0x000000ff) << 8 | (b & 0x000000ff) << 0);
                         for(int x = 0; x < tiffDir.width; x++) {
-                            // horizontal differencing
+                            // undo horizontal differencing
                             if(x > 0) {
                                 r += bb.get();
                                 g += bb.get();
@@ -161,13 +185,18 @@ public class LabelUtil {
                     // using monochrome for the label to keep the size small,
                     // otherwise it might not fit in the available space and
                     // most labels are monochrome, anyway
-                    BufferedImage imageAnnotated = new BufferedImage(tiffDir.width, tiffDir.height, BufferedImage.TYPE_BYTE_BINARY);
-                    //BufferedImage imageAnnotated = new BufferedImage(tiffDir.width, tiffDir.height, BufferedImage.TYPE_3BYTE_BGR);
+                    BufferedImage imageAnnotated = null;
+                    if(monochrome) {
+                        imageAnnotated = new BufferedImage(tiffDir.width, tiffDir.height, BufferedImage.TYPE_BYTE_BINARY);
+                    }
+                    else {
+                        imageAnnotated = new BufferedImage(tiffDir.width, tiffDir.height, BufferedImage.TYPE_3BYTE_BGR);
+                    }
                     Graphics2D graphics = imageAnnotated.createGraphics();
-                    graphics.drawImage(image, 0, 0, (int)(tiffDir.width * 0.75f), (int)(tiffDir.height * 0.75f), null);
+                    graphics.drawImage(image, 0, 0, (int)(tiffDir.width * 1.00f), (int)(tiffDir.height * 1.00f), null); // scaling the original is possible
                     graphics.setColor(Color.WHITE);
                     graphics.setFont(new Font("TimesRoman", Font.PLAIN, 50));
-                    graphics.drawString(annotation, 5, tiffDir.height - 20);
+                    graphics.drawString(annotation, 5, graphics.getFontMetrics().getHeight() + 20);
                     ByteArrayOutputStream bos = new ByteArrayOutputStream();
                     bb.clear();
                     for(int y = 0; y < tiffDir.height; y++){
@@ -193,15 +222,32 @@ public class LabelUtil {
                     Encoder lzwEncoder = new LZWEncoder(tiffDir.width * tiffDir.height * 3);
                     lzwEncoder.encode(bos, bb);
                     byte[] lzwBytes = bos.toByteArray();
-                    if(lzwBytes.length > tiffDir.imageDataLength) {
-                        logger.log(Level.SEVERE, "annotated label exceeds bytes available in SVS for label");
+                    if(lzwBytes.length > tiffDir.imageDataLength && !resizeFile) {
+                        logger.log(Level.SEVERE, "annotated label exceeds bytes available in SVS for label - use resize option");
                         System.exit(1);
                     }
+// ^^ resize logic ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+                    List<SVSFile.ResizeSegment> resizeSegmentList = new ArrayList<>();
+                    if(resizeFile) {
+                        SVSFile.ResizeSegment resizeSegment = new SVSFile.ResizeSegment(-1, lzwBytes.length - tiffDir.imageDataLength);
+                        resizeSegmentList.add(resizeSegment);
+                        if(lzwBytes.length < tiffDir.imageDataLength) {
+                            resizeSegment.start = tiffDir.imageDataOffsetInSvs + lzwBytes.length;
+                        }
+                        else if(lzwBytes.length > tiffDir.imageDataLength) {
+                            resizeSegment.start = tiffDir.imageDataOffsetInSvs + tiffDir.imageDataLength;
+                        }
+                    }
+                    if(resizeFile) { svsFile.resize(resizeSegmentList.stream().filter(x -> x.length > 0).collect(Collectors.toList())); }
+// ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
                     svsFile.setByte(tiffDir.offsetInSvs + tiffDir.imageDataLengthOffsetInHeader + 0, (byte)(((lzwBytes.length) & 0x000000ff) >>  0));
                     svsFile.setByte(tiffDir.offsetInSvs + tiffDir.imageDataLengthOffsetInHeader + 1, (byte)(((lzwBytes.length) & 0x0000ff00) >>  8));
                     svsFile.setByte(tiffDir.offsetInSvs + tiffDir.imageDataLengthOffsetInHeader + 2, (byte)(((lzwBytes.length) & 0x00ff0000) >> 16));
                     svsFile.setByte(tiffDir.offsetInSvs + tiffDir.imageDataLengthOffsetInHeader + 3, (byte)(((lzwBytes.length) & 0xff000000) >> 24));
                     svsFile.setBytes(tiffDir.imageDataOffsetInSvs, tiffDir.imageDataOffsetInSvs + lzwBytes.length, lzwBytes);
+// ^^ resize logic ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+                    if(resizeFile) { svsFile.resize(resizeSegmentList.stream().filter(x -> x.length < 0).collect(Collectors.toList())); }
+// ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
                     svsFile.write((new File(svsFile.svsFileName)).getName().replaceAll(".svs$", "_label_annotated.svs"));
                     logger.log(Level.INFO, String.format("slide with annotated label written to %s in current directory", (new File(svsFile.svsFileName)).getName().replaceAll(".svs$", "_label_annotated.svs")));
                     break;
@@ -222,9 +268,14 @@ public class LabelUtil {
                     // using monochrome for the label to keep the size small,
                     // otherwise it might not fit in the available space and
                     // most labels are monochrome, anyway
-                    BufferedImage imageAnnotated = new BufferedImage(tiffDir.width, tiffDir.height, BufferedImage.TYPE_BYTE_BINARY);
-                    //BufferedImage imageAnnotated = new BufferedImage(tiffDir.width, tiffDir.height, BufferedImage.TYPE_3BYTE_BGR);
-                    Graphics2D graphics = imageAnnotated.createGraphics();
+                    BufferedImage imageReplaced = null;
+                    if(monochrome) {
+                        imageReplaced = new BufferedImage(tiffDir.width, tiffDir.height, BufferedImage.TYPE_BYTE_BINARY);
+                    }
+                    else {
+                        imageReplaced = new BufferedImage(tiffDir.width, tiffDir.height, BufferedImage.TYPE_3BYTE_BGR);
+                    }
+                    Graphics2D graphics = imageReplaced.createGraphics();
                     graphics.setColor(Color.WHITE);
                     graphics.setFont(new Font("TimesRoman", Font.PLAIN, 80));
                     int yStart = graphics.getFontMetrics().getHeight() + 20;
@@ -234,21 +285,21 @@ public class LabelUtil {
                     }
                     ByteArrayOutputStream bos = new ByteArrayOutputStream();
                     for(int y = 0; y < tiffDir.height; y++){
-                        byte r  = (byte)((imageAnnotated.getRGB(0, y) & 0x00ff0000) >> 16);
-                        byte g  = (byte)((imageAnnotated.getRGB(0, y) & 0x0000ff00) >>  8);
-                        byte b  = (byte)((imageAnnotated.getRGB(0, y) & 0x000000ff) >>  0);
+                        byte r  = (byte)((imageReplaced.getRGB(0, y) & 0x00ff0000) >> 16);
+                        byte g  = (byte)((imageReplaced.getRGB(0, y) & 0x0000ff00) >>  8);
+                        byte b  = (byte)((imageReplaced.getRGB(0, y) & 0x000000ff) >>  0);
                         bb.put(r);
                         bb.put(g);
                         bb.put(b);
                         for(int x = 0; x < tiffDir.width; x++) {
                             // create horizontal differencing
                             if(x > 0) {
-                                bb.put((byte)(((imageAnnotated.getRGB(x, y) & 0x00ff0000) >> 16) - r));
-                                bb.put((byte)(((imageAnnotated.getRGB(x, y) & 0x0000ff00) >>  8) - g));
-                                bb.put((byte)(((imageAnnotated.getRGB(x, y) & 0x000000ff) >>  0) - b));
-                                r  = (byte)((imageAnnotated.getRGB(x, y) & 0x00ff0000) >> 16);
-                                g  = (byte)((imageAnnotated.getRGB(x, y) & 0x0000ff00) >>  8);
-                                b  = (byte)((imageAnnotated.getRGB(x, y) & 0x000000ff) >>  0);
+                                bb.put((byte)(((imageReplaced.getRGB(x, y) & 0x00ff0000) >> 16) - r));
+                                bb.put((byte)(((imageReplaced.getRGB(x, y) & 0x0000ff00) >>  8) - g));
+                                bb.put((byte)(((imageReplaced.getRGB(x, y) & 0x000000ff) >>  0) - b));
+                                r  = (byte)((imageReplaced.getRGB(x, y) & 0x00ff0000) >> 16);
+                                g  = (byte)((imageReplaced.getRGB(x, y) & 0x0000ff00) >>  8);
+                                b  = (byte)((imageReplaced.getRGB(x, y) & 0x000000ff) >>  0);
                             }
                         }
                     }
@@ -256,15 +307,32 @@ public class LabelUtil {
                     Encoder lzwEncoder = new LZWEncoder(tiffDir.width * tiffDir.height * 3);
                     lzwEncoder.encode(bos, bb);
                     byte[] lzwBytes = bos.toByteArray();
-                    if(lzwBytes.length > tiffDir.imageDataLength) {
-                        logger.log(Level.SEVERE, "annotated label exceeds bytes available in SVS for label");
+                    if(lzwBytes.length > tiffDir.imageDataLength && !resizeFile) {
+                        logger.log(Level.SEVERE, "annotated label exceeds bytes available in SVS for label - use resize option");
                         System.exit(1);
                     }
+// ^^ resize logic ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+                    List<SVSFile.ResizeSegment> resizeSegmentList = new ArrayList<>();
+                    if(resizeFile) {
+                        SVSFile.ResizeSegment resizeSegment = new SVSFile.ResizeSegment(-1, lzwBytes.length - tiffDir.imageDataLength);
+                        resizeSegmentList.add(resizeSegment);
+                        if(lzwBytes.length < tiffDir.imageDataLength) {
+                            resizeSegment.start = tiffDir.imageDataOffsetInSvs + lzwBytes.length;
+                        }
+                        else if(lzwBytes.length > tiffDir.imageDataLength) {
+                            resizeSegment.start = tiffDir.imageDataOffsetInSvs + tiffDir.imageDataLength;
+                        }
+                    }
+                    if(resizeFile) { svsFile.resize(resizeSegmentList.stream().filter(x -> x.length > 0).collect(Collectors.toList())); }
+// ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
                     svsFile.setByte(tiffDir.offsetInSvs + tiffDir.imageDataLengthOffsetInHeader + 0, (byte)(((lzwBytes.length) & 0x000000ff) >>  0));
                     svsFile.setByte(tiffDir.offsetInSvs + tiffDir.imageDataLengthOffsetInHeader + 1, (byte)(((lzwBytes.length) & 0x0000ff00) >>  8));
                     svsFile.setByte(tiffDir.offsetInSvs + tiffDir.imageDataLengthOffsetInHeader + 2, (byte)(((lzwBytes.length) & 0x00ff0000) >> 16));
                     svsFile.setByte(tiffDir.offsetInSvs + tiffDir.imageDataLengthOffsetInHeader + 3, (byte)(((lzwBytes.length) & 0xff000000) >> 24));
                     svsFile.setBytes(tiffDir.imageDataOffsetInSvs, tiffDir.imageDataOffsetInSvs + lzwBytes.length, lzwBytes);
+// ^^ resize logic ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+                    if(resizeFile) { svsFile.resize(resizeSegmentList.stream().filter(x -> x.length < 0).collect(Collectors.toList())); }
+// ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
                     svsFile.write((new File(svsFile.svsFileName)).getName().replaceAll(".svs$", "_label_replaced.svs"));
                     logger.log(Level.INFO, String.format("slide with annotated label written to %s in current directory", (new File(svsFile.svsFileName)).getName().replaceAll(".svs$", "_label_replaced.svs")));
                     break;
