@@ -48,6 +48,8 @@ This utility manipulates the label in an SVS file.
 usage: java -jar svsutil.jar labelutil [options] svs_file_name
  -a,--annotate <arg>   add string annotation to label (e.g., -a "test
                        annotation")
+ -m,--monochrome       if specified, any label written to SVS is converted
+                       to monochrome (default = do not use monochrome)
  -r,--replace <arg>    replace label entirely (e.g., -r "study set
                        #1<br/>case#2")
  -x,--extract          extract label to JPG
