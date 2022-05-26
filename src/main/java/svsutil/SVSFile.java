@@ -180,7 +180,7 @@ public class SVSFile {
         {
             for(ResizeSegment resizeSegment : resizeSegmentList) {
                 resizeSegment.setEnd();
-                if(firstHeaderOffset > resizeSegment.end) {
+                if(firstHeaderOffset >= resizeSegment.end) {
                     setBytesToLong(0x00000008, getBytesAsLong(0x00000008) + resizeSegment.length);
                 }
             }
