@@ -50,16 +50,17 @@ public class SVSFile {
     static public class ResizeSegment {
         public long start = -1;
         public long length = -1; // negative = compress / positive = expand
+        public long end = -1;
         public ResizeSegment(long start, long length) {
             this.start = start;
             this.length = length;
         }
-        public long getSegmentEnd() {
+        public void setEnd() {
             if(length < 0) {
-                return start + Math.abs(length);
+                end = start + Math.abs(length);
             }
             else {
-                return start;
+                end = start;
             }
         }
     }
@@ -178,39 +179,41 @@ public class SVSFile {
         // 1. update offsets in TIFF headers and referenced tile offset arrays
         {
             for(ResizeSegment resizeSegment : resizeSegmentList) {
-                if(firstHeaderOffset > resizeSegment.getSegmentEnd()) {
+                resizeSegment.setEnd();
+                if(firstHeaderOffset > resizeSegment.end) {
                     setBytesToLong(0x00000008, getBytesAsLong(0x00000008) + resizeSegment.length);
                 }
             }
             for(int x = 0; x < tiffDirList.size(); x++) {
                 TIFFDir tiffDir = tiffDirList.get(x);
                 for(ResizeSegment resizeSegment : resizeSegmentList) {
-                    if(tiffDir.tagNextDirOffsetInSvs != NO_MORE_TIFF_DIRECTORIES_OFFSET && tiffDir.tagNextDirOffsetInSvs >= resizeSegment.getSegmentEnd()) {
+                    resizeSegment.setEnd();
+                    if(tiffDir.tagNextDirOffsetInSvs != NO_MORE_TIFF_DIRECTORIES_OFFSET && tiffDir.tagNextDirOffsetInSvs >= resizeSegment.end) {
                         setBytesToLong(tiffDir.tagNextDirOffsetInSvsOffsetInSvs, getBytesAsLong(tiffDir.tagNextDirOffsetInSvsOffsetInSvs) + resizeSegment.length);
                     }
                     for(TIFFDir.TIFFTag tiffTag : tiffDir.tiffTagMap.values()) {
                         if(tiffTag instanceof TIFFDir.TIFFTagLong) {
                             TIFFDir.TIFFTagLong tiffTagLong = (TIFFDir.TIFFTagLong)tiffTag;
                             if(tiffTagLong.name == 273) { // StripOffsets (non-tiled image data)
-                                if(tiffTagLong.elementValues[0] >= resizeSegment.getSegmentEnd()) {
+                                if(tiffTagLong.elementValues[0] >= resizeSegment.end) {
                                     setBytesToLong(tiffTagLong.osElementValues[0], getBytesAsLong(tiffTagLong.osElementValues[0]) + resizeSegment.length);
                                 }
                             }
                         }
                         else if(tiffTag instanceof TIFFDir.TIFFTagASCIIReference) {
                             TIFFDir.TIFFTagASCIIReference tiffTagASCIIReference = (TIFFDir.TIFFTagASCIIReference)tiffTag;
-                            if(tiffTagASCIIReference.osElementValueDereferenced >= resizeSegment.getSegmentEnd()) {
+                            if(tiffTagASCIIReference.osElementValueDereferenced >= resizeSegment.end) {
                                 setBytesToLong(tiffTagASCIIReference.osElementValue, getBytesAsLong(tiffTagASCIIReference.osElementValue) + resizeSegment.length);
                             }
                         }
                         else if(tiffTag instanceof TIFFDir.TIFFTagLongArrayReference) {
                             TIFFDir.TIFFTagLongArrayReference tiffTagLongArrayReference = (TIFFDir.TIFFTagLongArrayReference)tiffTag;
-                            if(tiffTagLongArrayReference.osElementValuesDereferenced[0] >= resizeSegment.getSegmentEnd()) {
+                            if(tiffTagLongArrayReference.osElementValuesDereferenced[0] >= resizeSegment.end) {
                                 setBytesToLong(tiffTagLongArrayReference.osElementValue, getBytesAsLong(tiffTagLongArrayReference.osElementValue) + resizeSegment.length);
                             }
                             if(tiffTagLongArrayReference.name == 324) { // TileOffsets (tiled image data)
                                 for(int y = 0; y < tiffTagLongArrayReference.elementValuesDereferenced.length; y++) {
-                                    if(tiffTagLongArrayReference.elementValuesDereferenced[y] >= resizeSegment.getSegmentEnd()) {
+                                    if(tiffTagLongArrayReference.elementValuesDereferenced[y] >= resizeSegment.end) {
                                         setBytesToLong(tiffTagLongArrayReference.osElementValuesDereferenced[y], getBytesAsLong(tiffTagLongArrayReference.osElementValuesDereferenced[y]) + resizeSegment.length);
                                     }
                                 }
@@ -218,7 +221,7 @@ public class SVSFile {
                         }
                         else if(tiffTag instanceof TIFFDir.TIFFTagUndefinedReference) {
                             TIFFDir.TIFFTagUndefinedReference tiffTagUndefinedReference = (TIFFDir.TIFFTagUndefinedReference)tiffTag;
-                            if(tiffTagUndefinedReference.osElementValueDereferenced >= resizeSegment.getSegmentEnd()) {
+                            if(tiffTagUndefinedReference.osElementValueDereferenced >= resizeSegment.end) {
                                 setBytesToLong(tiffTagUndefinedReference.osElementValue, getBytesAsLong(tiffTagUndefinedReference.osElementValue) + resizeSegment.length);
                             }
                         }

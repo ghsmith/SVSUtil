@@ -166,14 +166,18 @@ public class TIFFDir {
                         tiffTag.osLength = osTagLength;
                         tiffTag.elementValues = new int[tagLength];
                         tiffTag.osElementValues = new long[tagLength];
+                        int bytesWritten = 0;
                         for(int y = 0; y < tagLength; y++) {
                             tiffTag.elementValues[y] = ByteUtil.bytesToInt(svsFile.getBytes(offsetInSvs + currentOffsetInHeader, offsetInSvs + currentOffsetInHeader + 0x0000002));
                             tiffTag.osElementValues[y] = offsetInSvs + currentOffsetInHeader;
                             currentOffsetInHeader += 0x00000002;
+                            bytesWritten += 2;
                         }
-                        // improve this... makes sure we land on a word boundary
-                        if(tiffTag.length == 1) { currentOffsetInHeader += 0x00000006; }
-                        if(tiffTag.length == 3) { currentOffsetInHeader += 0x00000002; }
+                        // makes sure we end on a word boundary
+                        while(bytesWritten % 8 != 0) {
+                            currentOffsetInHeader += 0x00000002;
+                            bytesWritten += 2;
+                        }
                         break;
                     }
                     case 2: {

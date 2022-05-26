@@ -156,8 +156,8 @@ public class ColorUtil {
                 if(tiffDir.tileContigList.isEmpty()) {
                     continue;
                 }
-                int bytesAvailable = 0;
-                int bytesRequired = 0;
+                long bytesAvailable = 0;
+                long bytesRequired = 0;
                 for(int y = tiffDir.tileContigList.size() - 1; y >= 0; y--) {
                     // tile contigs appear in reverse order (i.e., bottom row first, left-to-right, then next row up, etc.)
                     TIFFTileContig tileContig = tiffDir.tileContigList.get(y);
