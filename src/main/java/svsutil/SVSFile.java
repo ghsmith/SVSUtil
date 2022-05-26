@@ -65,7 +65,7 @@ public class SVSFile {
         }
     }
 
-    public static final int BUFFER_SIZE = 500000000;
+    public static final int BUFFER_SIZE = 250000000;
     
     public static final int R = 0;
     public static final int G = 1;
@@ -233,12 +233,16 @@ public class SVSFile {
         // 2. remove/add bytes from/to buffers and reparse TIFF
         {
             long lengthResized = length + resizeSegmentList.stream().mapToLong(x -> x.length).sum();
+            long startMinimum = resizeSegmentList.stream().mapToLong(x -> x.start).min().getAsLong();
             List<byte[]> svsBytesResizedList = new ArrayList<>();
-            for(int x = 0; x <= lengthResized / BUFFER_SIZE; x++) {
+            for(int x = 0; x < (int)(startMinimum / BUFFER_SIZE); x++) {
+                svsBytesResizedList.add(svsBytesList.get(x));
+            }
+            for(int x = (int)(startMinimum / BUFFER_SIZE); x <= (int)(lengthResized / BUFFER_SIZE); x++) {
                 svsBytesResizedList.add(new byte[BUFFER_SIZE]);
             }
-            long indexResized = 0;
-            for(long x = 0; x < length; x++) {
+            long indexResized = (startMinimum / BUFFER_SIZE) * BUFFER_SIZE;
+            for(long x = (startMinimum / BUFFER_SIZE) * BUFFER_SIZE; x < length; x++) {
                 for(ResizeSegment resizeSegment : resizeSegmentList) {
                     if(x == resizeSegment.start) {
                         if(resizeSegment.length < 0) {
@@ -320,24 +324,28 @@ public class SVSFile {
     }
 
     public long getBytesAsLong(long index) {
-        return (long)
-              ((((long)getByte(index + 0)) & 0x00000000000000ffL) <<  0)
-            | ((((long)getByte(index + 1)) & 0x00000000000000ffL) <<  8)
-            | ((((long)getByte(index + 2)) & 0x00000000000000ffL) << 16)
-            | ((((long)getByte(index + 3)) & 0x00000000000000ffL) << 24)
-            | ((((long)getByte(index + 4)) & 0x00000000000000ffL) << 32)
-            | ((((long)getByte(index + 5)) & 0x00000000000000ffL) << 40)
-            | ((((long)getByte(index + 6)) & 0x00000000000000ffL) << 48);
+        byte[] bytes = getBytes(index, index + 7);
+        return
+              ((((long)bytes[0]) & 0x00000000000000ffL) <<  0)
+            | ((((long)bytes[1]) & 0x00000000000000ffL) <<  8)
+            | ((((long)bytes[2]) & 0x00000000000000ffL) << 16)
+            | ((((long)bytes[3]) & 0x00000000000000ffL) << 24)
+            | ((((long)bytes[4]) & 0x00000000000000ffL) << 32)
+            | ((((long)bytes[5]) & 0x00000000000000ffL) << 40)
+            | ((((long)bytes[6]) & 0x00000000000000ffL) << 48);
     }
     
     public void setBytesToLong(long index, long val) {
-        setByte(index + 0, (byte)(((val) & 0x00000000000000ffL) >>  0));
-        setByte(index + 1, (byte)(((val) & 0x000000000000ff00L) >>  8));
-        setByte(index + 2, (byte)(((val) & 0x0000000000ff0000L) >> 16));
-        setByte(index + 3, (byte)(((val) & 0x00000000ff000000L) >> 24));
-        setByte(index + 4, (byte)(((val) & 0x00000000ff000000L) >> 32));
-        setByte(index + 5, (byte)(((val) & 0x00000000ff000000L) >> 40));
-        setByte(index + 6, (byte)(((val) & 0x00000000ff000000L) >> 48));
+        byte[] bytes = new byte[] {
+            (byte)(((val) & 0x00000000000000ffL) >>  0),
+            (byte)(((val) & 0x000000000000ff00L) >>  8),
+            (byte)(((val) & 0x0000000000ff0000L) >> 16),
+            (byte)(((val) & 0x00000000ff000000L) >> 24),
+            (byte)(((val) & 0x000000ff00000000L) >> 32),
+            (byte)(((val) & 0x0000ff0000000000L) >> 40),
+            (byte)(((val) & 0x00ff000000000000L) >> 48)
+        };
+        setBytes(index, index + 7, bytes);
     }
     
 }
