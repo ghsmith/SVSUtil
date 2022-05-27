@@ -55,6 +55,7 @@ public class ColorUtil {
         int skip = 0;
         boolean noRecolor = false;
         boolean resizeFile = false;
+        boolean annotate = false;
 
         Options options = new Options();
 
@@ -81,6 +82,10 @@ public class ColorUtil {
         optionResize.setRequired(false);
         options.addOption(optionResize);
 
+        Option optionAnnotate = new Option("a", "annotate", false, String.format("if specified, annotate every tile with its tile ID and microns per pixel (default = do not annotate)"));
+        optionAnnotate.setRequired(false);
+        options.addOption(optionAnnotate);
+
         CommandLineParser parser = new DefaultParser();
         HelpFormatter formatter = new HelpFormatter();
         CommandLine cmd = null; //not a good practice, it serves it purpose 
@@ -92,6 +97,7 @@ public class ColorUtil {
             if(cmd.hasOption(optionSkip)) { skip = ((Long)cmd.getParsedOptionValue(optionSkip)).intValue(); }
             if(cmd.hasOption(optionNoRecolor)) { noRecolor = true; }
             if(cmd.hasOption(optionResize)) { resizeFile = true; }
+            if(cmd.hasOption(optionAnnotate)) { annotate = true; }
             if(cmd.getArgs().length != 1) { throw new ParseException("no file specified"); }
             if(!cmd.getArgs()[0].toLowerCase().endsWith(".svs")) { throw new ParseException("file name must have a 'svs' extension"); }
         }
@@ -138,7 +144,7 @@ public class ColorUtil {
 
         Thread[] recolorThreads = new Thread[threads];
         for(int x = 0; x < threads; x++) {
-            recolorThreads[x] = new Thread(new RecolorRunner(svsFile, quality, skip, noRecolor));
+            recolorThreads[x] = new Thread(new RecolorRunner(svsFile, quality, skip, noRecolor, annotate));
             recolorThreads[x].start();
         }
         for(int x = 0; x < threads; x++) {

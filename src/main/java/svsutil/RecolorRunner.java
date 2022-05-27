@@ -24,6 +24,11 @@
 
 package svsutil;
 
+import java.awt.BasicStroke;
+import java.awt.Color;
+import java.awt.Font;
+import java.awt.FontMetrics;
+import java.awt.Graphics2D;
 import java.awt.image.BufferedImage;
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
@@ -50,12 +55,14 @@ class RecolorRunner implements Runnable {
     public int quality;
     public int skip;
     public boolean noRecolor;
+    public boolean annotate;
 
-    public RecolorRunner(SVSFile svsFile, int quality, int skip, boolean noRecolor) throws InterruptedException {
+    public RecolorRunner(SVSFile svsFile, int quality, int skip, boolean noRecolor, boolean annotate) throws InterruptedException {
         this.svsFile = svsFile;
         this.quality = quality;
         this.skip = skip;
         this.noRecolor = noRecolor;
+        this.annotate = annotate;
     }
 
     @Override
@@ -94,6 +101,23 @@ class RecolorRunner implements Runnable {
                             Arrays.parallelSetAll(imagePixels, i -> svsFile.lutUpsampledInt[imagePixels[i] & 0x00ffffff]);
                         }
                         image.setRGB(0, 0, 0x100, 0x100, imagePixels, 0, 0x100);
+                        if(annotate) {
+                            String tileId = tileContig.id + "." + String.valueOf(tileContig.firstTileIndexInTIFFDir + z);
+                            int tileX = (tileContig.firstTileIndexInTIFFDir + z) % (int)Math.ceil(tiffDir.width / 256f);
+                            int tileY = (tileContig.firstTileIndexInTIFFDir + z) / (int)Math.ceil(tiffDir.width / 256f);
+                            Graphics2D graphics = image.createGraphics();
+                            graphics.setColor(Color.BLACK);
+                            graphics.setStroke(new BasicStroke(5f));
+                            graphics.drawLine(0, 0, 10, 10);
+                            graphics.drawLine(0, 255, 10, 245);
+                            graphics.drawLine(255, 255, 245, 245);
+                            graphics.drawLine(255, 0, 245, 10);
+                            graphics.setFont(new Font("TimesRoman", Font.BOLD, 30));
+                            FontMetrics metrics = graphics.getFontMetrics();
+                            graphics.drawString(tileId, 20, 1 * (metrics.getHeight() + 20));
+                            graphics.drawString(String.format("%d x %d", tileX, tileY), 20, 2 * (metrics.getHeight() + 20));                            
+                            graphics.drawString(String.format("%4.2f mpp", tiffDir.mpp), 20, 3 * (metrics.getHeight() + 20));                            
+                        }
                         IIOImage outputImage = new IIOImage(image, null, null);
                         baos.reset();
                         writer.write(null, outputImage, iwp);

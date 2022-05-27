@@ -118,7 +118,7 @@ public class SVSFile {
             logger.log(Level.INFO, String.format("========== parsing TIFF directory #%d tags (%d) ==========", tiffDirList.size(), offset));
             TIFFDir tiffDir = new TIFFDir(String.valueOf(x), this, offset);
             tiffDirList.add(tiffDir);
-            logger.log(Level.INFO, String.format("width=%d height=%d", tiffDir.width, tiffDir.height));
+            logger.log(Level.INFO, String.format("width=%d height=%d mpp=%4.2f", tiffDir.width, tiffDir.height, tiffDir.mpp));
             if(!tiffDir.tileContigList.isEmpty() && tiffDir.tagICCNameOffsetInHeader != -1 && iccBytes == null ) {
                 iccBytes = getBytes(tiffDir.tagICCOffsetInSvs, tiffDir.tagICCOffsetInSvs + tiffDir.tagICCLength);
             }

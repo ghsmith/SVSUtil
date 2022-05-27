@@ -30,6 +30,8 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.logging.Logger;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 /**
  * 
@@ -88,6 +90,7 @@ public class TIFFDir {
     public int subfileType = -1;
     public int width = -1;
     public int height = -1;
+    public float mpp = -1;
 
     // this is needed to extract the ICC color profile bytes
     public long tagICCOffsetInSvs = -1;
@@ -263,6 +266,14 @@ public class TIFFDir {
             subfileType = (int)((TIFFTagLong)tiffTagMap.get(254)).elementValues[0];
             width = tiffTagMap.get(256) instanceof TIFFTagLong ? (int)((TIFFTagLong)tiffTagMap.get(256)).elementValues[0] : ((TIFFTagShort)tiffTagMap.get(256)).elementValues[0];
             height = tiffTagMap.get(257) instanceof TIFFTagLong ? (int)((TIFFTagLong)tiffTagMap.get(257)).elementValues[0] : ((TIFFTagShort)tiffTagMap.get(257)).elementValues[0];
+            {
+                String description = ((TIFFTagASCIIReference)tiffTagMap.get(270)).elementValueDereferenced;
+                Pattern p = Pattern.compile(".*\\|MPP = ([\\.0-9]*)\\|.*", Pattern.DOTALL); // DOTALL b/c the description is multi-line
+                Matcher m = p.matcher(description);
+                if(m.matches()) {
+                    mpp = Float.valueOf(m.group(1));
+                }
+            }
             tagICCOffsetInSvs = tiffTagMap.get(34675) != null ? ((TIFFTagUndefinedReference)tiffTagMap.get(34675)).osElementValueDereferenced : -1;
             tagICCLength = tiffTagMap.get(34675) != null ? ((TIFFTagUndefinedReference)tiffTagMap.get(34675)).length : -1;
             tagICCNameOffsetInHeader = tiffTagMap.get(34675) != null ? (int)(((TIFFTagUndefinedReference)tiffTagMap.get(34675)).osName - offsetInSvs) : -1;
@@ -286,6 +297,7 @@ public class TIFFDir {
                     tileContig.id = id + "." + String.valueOf(contigIndex);
                     tileContig.offsetInSvs = tagTileOffsetsInSvs[contigStartIndex];
                     tileContig.length = (int)(tagTileOffsetsInSvs[x] + tagTileLengths[x] - tagTileOffsetsInSvs[contigStartIndex]);
+                    tileContig.firstTileIndexInTIFFDir = contigStartIndex;
                     tileContig.tagTileOffsetsInSvs = Arrays.copyOfRange(tagTileOffsetsInSvs, contigStartIndex, x + 1);
                     tileContig.tagTileOffsetsInSvsOffsetInSvs = Arrays.copyOfRange(tagTileOffsetsInSvsOffsetInSvs, contigStartIndex, x + 1);
                     tileContig.tagTileLengths = Arrays.copyOfRange(tagTileLengths, contigStartIndex, x + 1);

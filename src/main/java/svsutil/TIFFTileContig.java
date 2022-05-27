@@ -41,6 +41,7 @@ public class TIFFTileContig {
     public long[] tagTileOffsetsInSvsOffsetInSvs = null;
     public int[] tagTileLengths = null;
     public long[] tagTileLengthsOffsetInSvs = null;
+    public int firstTileIndexInTIFFDir = -1;
     
     Map<Integer, byte[]> recoloredTileBytesMap = new ConcurrentHashMap<>();
     
