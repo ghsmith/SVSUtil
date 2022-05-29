@@ -15,6 +15,11 @@
                <artifactId>imageio-tiff</artifactId>
                <version>3.8.2</version>
         </dependency>
+        <!--dependency>
+               <groupId>com.twelvemonkeys.imageio</groupId>
+               <artifactId>imageio-jpeg</artifactId>
+               <version>3.8.2</version>
+        </dependency-->
     </dependencies>
     <build>
         <plugins>
