@@ -118,7 +118,7 @@ public class SVSFile {
             logger.log(Level.INFO, String.format("========== parsing TIFF directory #%d tags (%d) ==========", tiffDirList.size(), offset));
             TIFFDir tiffDir = new TIFFDir(String.valueOf(x), this, offset);
             tiffDirList.add(tiffDir);
-            logger.log(Level.INFO, String.format("width=%d height=%d mpp=%4.2f", tiffDir.width, tiffDir.height, tiffDir.mpp));
+            logger.log(Level.INFO, String.format("width=%d height=%d tileWidth=%d tileHeight=%d mpp=%4.2f", tiffDir.width, tiffDir.height, tiffDir.tileWidth, tiffDir.tileHeight, tiffDir.mpp));
             if(!tiffDir.tileContigList.isEmpty() && tiffDir.tagICCNameOffsetInHeader != -1 && iccBytes == null ) {
                 iccBytes = getBytes(tiffDir.tagICCOffsetInSvs, tiffDir.tagICCOffsetInSvs + tiffDir.tagICCLength);
             }
@@ -346,6 +346,47 @@ public class SVSFile {
             (byte)(((val) & 0x00ff000000000000L) >> 48)
         };
         setBytes(index, index + 7, bytes);
+    }
+
+    // the tile ID consists of x.y.z
+    // x = TIFF directory index
+    // y = TIFF contig index
+    // z = TIFF tile index in TIFF directory (not in the contig, subtract TIFFContig.firstTileIndexInTIFFDir to get the index in the contig)
+    public void setRecoloredTileBytesForTileId(String tileId, byte[] vals) {
+        String[] tileIdSplit = tileId.split("\\.");
+        int tiffDirIndex = Integer.valueOf(tileIdSplit[0]);
+        int tileContigIndex = Integer.valueOf(tileIdSplit[1]);
+        int tileIndex = Integer.valueOf(tileIdSplit[2]);
+        TIFFTileContig tileContig = tiffDirList.get(tiffDirIndex).tileContigList.get(tileContigIndex);
+        tileContig.recoloredTileBytesMap.put(tileIndex - tileContig.firstTileIndexInTIFFDir, vals);
+    }
+
+    public TIFFDir getTIFFDirForTileId(String tileId) {
+        String[] tileIdSplit = tileId.split("\\.");
+        int tiffDirIndex = Integer.valueOf(tileIdSplit[0]);
+        return tiffDirList.get(tiffDirIndex);
+    }
+
+    public TIFFTileContig getTileContigForTileId(String tileId) {
+        String[] tileIdSplit = tileId.split("\\.");
+        int tiffDirIndex = Integer.valueOf(tileIdSplit[0]);
+        int tileContigIndex = Integer.valueOf(tileIdSplit[1]);
+        return tiffDirList.get(tiffDirIndex).tileContigList.get(tileContigIndex);
+    }
+
+    public int getTileIndexInContigForTileId(String tileId) {
+        String[] tileIdSplit = tileId.split("\\.");
+        int tiffDirIndex = Integer.valueOf(tileIdSplit[0]);
+        int tileContigIndex = Integer.valueOf(tileIdSplit[1]);
+        int tileIndex = Integer.valueOf(tileIdSplit[2]);
+        TIFFTileContig tileContig = tiffDirList.get(tiffDirIndex).tileContigList.get(tileContigIndex);
+        return tileIndex - tileContig.firstTileIndexInTIFFDir;
+    }
+
+    public int getTileIndexForTileId(String tileId) {
+        String[] tileIdSplit = tileId.split("\\.");
+        int tileIndex = Integer.valueOf(tileIdSplit[2]);
+        return tileIndex;
     }
     
 }

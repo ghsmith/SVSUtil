@@ -91,6 +91,9 @@ public class TIFFDir {
     public int width = -1;
     public int height = -1;
     public float mpp = -1;
+    public int tileWidth = -1;
+    public int tileHeight = -1;
+    public String description = null;
 
     // this is needed to extract the ICC color profile bytes
     public long tagICCOffsetInSvs = -1;
@@ -266,8 +269,10 @@ public class TIFFDir {
             subfileType = (int)((TIFFTagLong)tiffTagMap.get(254)).elementValues[0];
             width = tiffTagMap.get(256) instanceof TIFFTagLong ? (int)((TIFFTagLong)tiffTagMap.get(256)).elementValues[0] : ((TIFFTagShort)tiffTagMap.get(256)).elementValues[0];
             height = tiffTagMap.get(257) instanceof TIFFTagLong ? (int)((TIFFTagLong)tiffTagMap.get(257)).elementValues[0] : ((TIFFTagShort)tiffTagMap.get(257)).elementValues[0];
+            tileWidth = tiffTagMap.get(322) != null ? ((TIFFTagShort)tiffTagMap.get(322)).elementValues[0] : -1;
+            tileHeight = tiffTagMap.get(323) != null ? ((TIFFTagShort)tiffTagMap.get(323)).elementValues[0] : -1;
+            description = ((TIFFTagASCIIReference)tiffTagMap.get(270)).elementValueDereferenced;
             {
-                String description = ((TIFFTagASCIIReference)tiffTagMap.get(270)).elementValueDereferenced;
                 Pattern p = Pattern.compile(".*\\|MPP = ([\\.0-9]*)\\|.*", Pattern.DOTALL); // DOTALL b/c the description is multi-line
                 Matcher m = p.matcher(description);
                 if(m.matches()) {

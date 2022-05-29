@@ -56,6 +56,7 @@ public class ColorUtil {
         boolean noRecolor = false;
         boolean resizeFile = false;
         boolean annotate = false;
+        int startWithTiffDirIndex = 0; // set to higher numbers for troubleshooting (runs faster)
 
         Options options = new Options();
 
@@ -117,7 +118,7 @@ public class ColorUtil {
             @Override
             public void run() {
                 int tileCount = 0;
-                for(int x = 0; x < svsFile.tiffDirList.size(); x++) {
+                for(int x = startWithTiffDirIndex; x < svsFile.tiffDirList.size(); x++) {
                     TIFFDir tiffDir = svsFile.tiffDirList.get(x);
                     for(int y = 0; y < tiffDir.tileContigList.size(); y++) {
                         TIFFTileContig tileContig = tiffDir.tileContigList.get(y);
@@ -136,7 +137,8 @@ public class ColorUtil {
                     logger.log(Level.INFO, String.format("%d of %d tiles recolored (%4.1f%% complete)", svsFile.nextTileNo, tileCount, 100f * svsFile.nextTileNo / tileCount));
                 }
                 catch(Exception e) {
-                    throw new RuntimeException(e);
+                    e.printStackTrace();
+                    System.exit(1);
                 }
             }
         });
@@ -144,7 +146,17 @@ public class ColorUtil {
 
         Thread[] recolorThreads = new Thread[threads];
         for(int x = 0; x < threads; x++) {
-            recolorThreads[x] = new Thread(new RecolorRunner(svsFile, quality, skip, noRecolor, annotate));
+            if(svsFile.tiffDirList.get(0).description.startsWith("Aperio Leica Biosystems GT450 v1.0.1")) {
+                recolorThreads[x] = new Thread(new RecolorRunnerGT450(svsFile, quality, skip, noRecolor, annotate, startWithTiffDirIndex));
+            }
+            else if(svsFile.tiffDirList.get(0).description.startsWith("Aperio Image Library v12.0.15")) {
+                recolorThreads[x] = new Thread(new RecolorRunnerAT2(svsFile, quality, skip, noRecolor, annotate, startWithTiffDirIndex));
+            }
+            else {
+                System.err.println("unknown scanner");
+                System.exit(1);
+            }
+            recolorThreads[x] = new Thread(new RecolorRunnerGT450(svsFile, quality, skip, noRecolor, annotate, startWithTiffDirIndex));
             recolorThreads[x].start();
         }
         for(int x = 0; x < threads; x++) {
@@ -157,7 +169,7 @@ public class ColorUtil {
 // ^^ resize logic ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
             List<SVSFile.ResizeSegment> resizeSegmentList = new ArrayList<>();
 // ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-            for(int x = 0; x < svsFile.tiffDirList.size(); x++) {
+            for(int x = startWithTiffDirIndex; x < svsFile.tiffDirList.size(); x++) {
                 TIFFDir tiffDir = svsFile.tiffDirList.get(x);
                 if(tiffDir.tileContigList.isEmpty()) {
                     continue;
@@ -196,7 +208,7 @@ public class ColorUtil {
             // do segment expansions before writing the new image tiles...
             if(resizeFile) { svsFile.resize(resizeSegmentList.stream().filter(x -> x.length > 0).collect(Collectors.toList())); }
 // ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-            for(int x = 0; x < svsFile.tiffDirList.size(); x++) {
+            for(int x = startWithTiffDirIndex; x < svsFile.tiffDirList.size(); x++) {
                 TIFFDir tiffDir = svsFile.tiffDirList.get(x);
                 if(tiffDir.tileContigList.isEmpty()) {
                     continue;
@@ -217,7 +229,7 @@ public class ColorUtil {
             }
             // clobber ICC in the TIFF directory by changing its tag name to garbage
             if(!noRecolor) {
-                for(int x = 0; x < svsFile.tiffDirList.size(); x++) {
+                for(int x = startWithTiffDirIndex; x < svsFile.tiffDirList.size(); x++) {
                     TIFFDir tiffDir = svsFile.tiffDirList.get(x);
                     if(tiffDir.tagICCOffsetInSvs != -1) {
                         svsFile.setByte(tiffDir.offsetInSvs + tiffDir.tagICCNameOffsetInHeader + 0, (byte)0xff);
