@@ -55,20 +55,26 @@ public class TIFFDir {
         long[] osElementValues = null;
     }
     
+    public class TIFFTagLongArrayReference extends TIFFTag {
+        long[] elementValuesDereferenced = null;
+        long[] osElementValuesDereferenced = null;
+        long osElementValue;
+    }
+    
     public class TIFFTagShort extends TIFFTag {
         int[] elementValues = null;
         long[] osElementValues = null;
     }
     
+    public class TIFFTagShortArrayReference extends TIFFTag {
+        int[] elementValuesDereferenced = null;
+        long[] osElementValuesDereferenced = null;
+        long osElementValue;
+    }
+
     public class TIFFTagASCIIReference extends TIFFTag {
         String elementValueDereferenced = null;
         long osElementValueDereferenced = -1;
-        long osElementValue;
-    }
-    
-    public class TIFFTagLongArrayReference extends TIFFTag {
-        long[] elementValuesDereferenced = null;
-        long[] osElementValuesDereferenced = null;
         long osElementValue;
     }
     
@@ -99,6 +105,10 @@ public class TIFFDir {
     public long tagICCOffsetInSvs = -1;
     public int tagICCLength = -1;
 
+    // this is needed for AT2 JPEG decoding/encoding
+    public long tagJPEGTablesOffsetInSvs = -1;
+    public int tagJPEGTablesLength = -1;
+    
     // these are for the non-tiled images (thumbnail, label, macro)
     public long imageDataOffsetInSvs = -1;
     public long imageDataLength = -1;
@@ -128,61 +138,106 @@ public class TIFFDir {
         long[] tagTileLengthsOffsetInSvs = null;
         
         {
+            int numberOfTagsLength = 0x00000008;
+            boolean allArraysAreDereferenced = false;
+            if(svsFile.longLength == 0x00000004) {
+                numberOfTagsLength = 0x00000002;
+                allArraysAreDereferenced = true;
+            }
             this.offsetInSvs = offsetInSvs;
             long currentOffsetInHeader = 0;
-            tagNumberOfTags = (int)ByteUtil.bytesToLong(svsFile.getBytes(offsetInSvs + currentOffsetInHeader, offsetInSvs + currentOffsetInHeader + 0x0000008));
-            currentOffsetInHeader += 0x00000008;
+            tagNumberOfTags = (int)ByteUtil.bytesToLong(svsFile.getBytes(offsetInSvs + currentOffsetInHeader, offsetInSvs + currentOffsetInHeader + numberOfTagsLength));
+            currentOffsetInHeader += numberOfTagsLength;
             for(int x = 0; x < tagNumberOfTags; x++) {
-                int tagName = ByteUtil.bytesToInt(svsFile.getBytes(offsetInSvs + currentOffsetInHeader, offsetInSvs + currentOffsetInHeader + 0x00000002));
+                int tagName = ByteUtil.bytesToShort(svsFile.getBytes(offsetInSvs + currentOffsetInHeader, offsetInSvs + currentOffsetInHeader + 0x00000002));
                 long osTagName = offsetInSvs + currentOffsetInHeader;
                 currentOffsetInHeader += 0x00000002;
-                int tagDataType = ByteUtil.bytesToInt(svsFile.getBytes(offsetInSvs + currentOffsetInHeader, offsetInSvs + currentOffsetInHeader + 0x00000002));
+                int tagDataType = ByteUtil.bytesToShort(svsFile.getBytes(offsetInSvs + currentOffsetInHeader, offsetInSvs + currentOffsetInHeader + 0x00000002));
                 long osTagDataType = offsetInSvs + currentOffsetInHeader;
                 currentOffsetInHeader += 0x00000002;
-                int tagLength = (int)ByteUtil.bytesToLong(svsFile.getBytes(offsetInSvs + currentOffsetInHeader, offsetInSvs + currentOffsetInHeader + 0x00000008));
+                int tagLength = (int)ByteUtil.bytesToLong(svsFile.getBytes(offsetInSvs + currentOffsetInHeader, offsetInSvs + currentOffsetInHeader + svsFile.longLength));
                 long osTagLength = offsetInSvs + currentOffsetInHeader;
-                currentOffsetInHeader += 0x00000008;
+                currentOffsetInHeader += svsFile.longLength;
                 switch(tagDataType) {
                     case 4: {
-                        TIFFTagLong tiffTag = new TIFFTagLong();
-                        tiffTagMap.put(tagName, tiffTag);
-                        tiffTag.name = tagName;
-                        tiffTag.osName = osTagName;
-                        tiffTag.length = tagLength;
-                        tiffTag.dataType = tagDataType;
-                        tiffTag.osDataType = osTagDataType;
-                        tiffTag.osLength = osTagLength;
-                        tiffTag.elementValues = new long[tagLength];
-                        tiffTag.osElementValues = new long[tagLength];
-                        for(int y = 0; y < tagLength; y++) {
-                            tiffTag.elementValues[y] = ByteUtil.bytesToLong(svsFile.getBytes(offsetInSvs + currentOffsetInHeader, offsetInSvs + currentOffsetInHeader + 0x0000008));
-                            tiffTag.osElementValues[y] = offsetInSvs + currentOffsetInHeader;
-                            currentOffsetInHeader += 0x00000008;
+                        if(tagLength == 1 || !allArraysAreDereferenced) {
+                            TIFFTagLong tiffTag = new TIFFTagLong();
+                            tiffTagMap.put(tagName, tiffTag);
+                            tiffTag.name = tagName;
+                            tiffTag.osName = osTagName;
+                            tiffTag.length = tagLength;
+                            tiffTag.dataType = tagDataType;
+                            tiffTag.osDataType = osTagDataType;
+                            tiffTag.osLength = osTagLength;
+                            tiffTag.elementValues = new long[tagLength];
+                            tiffTag.osElementValues = new long[tagLength];
+                            for(int y = 0; y < tagLength; y++) {
+                                tiffTag.elementValues[y] = ByteUtil.bytesToLong(svsFile.getBytes(offsetInSvs + currentOffsetInHeader, offsetInSvs + currentOffsetInHeader + svsFile.longLength));
+                                tiffTag.osElementValues[y] = offsetInSvs + currentOffsetInHeader;
+                                currentOffsetInHeader += svsFile.longLength;
+                            }
+                        }
+                        else {
+                            TIFFTagLongArrayReference tiffTag = new TIFFTagLongArrayReference();
+                            tiffTagMap.put(tagName, tiffTag);
+                            tiffTag.name = tagName;
+                            tiffTag.osName = osTagName;
+                            tiffTag.length = tagLength;
+                            tiffTag.dataType = tagDataType;
+                            tiffTag.osDataType = osTagDataType;
+                            tiffTag.osLength = osTagLength;
+                            tiffTag.elementValuesDereferenced = new long[tagLength];
+                            tiffTag.osElementValuesDereferenced = new long[tagLength];
+                            for(int y = 0; y < tagLength; y++) {
+                                tiffTag.osElementValuesDereferenced[y] = ByteUtil.bytesToLong(svsFile.getBytes(offsetInSvs + currentOffsetInHeader, offsetInSvs + currentOffsetInHeader + svsFile.longLength)) + (svsFile.longLength * y);
+                                tiffTag.elementValuesDereferenced[y] = ByteUtil.bytesToLong(svsFile.getBytes(tiffTag.osElementValuesDereferenced[y], tiffTag.osElementValuesDereferenced[y] + svsFile.longLength));
+                            }
+                            tiffTag.osElementValue = offsetInSvs + currentOffsetInHeader;
+                            currentOffsetInHeader += svsFile.longLength;
                         }
                         break;
                     }
                     case 3: {
-                        TIFFTagShort tiffTag = new TIFFTagShort();
-                        tiffTagMap.put(tagName, tiffTag);
-                        tiffTag.name = tagName;
-                        tiffTag.osName = osTagName;
-                        tiffTag.length = tagLength;
-                        tiffTag.dataType = tagDataType;
-                        tiffTag.osDataType = osTagDataType;
-                        tiffTag.osLength = osTagLength;
-                        tiffTag.elementValues = new int[tagLength];
-                        tiffTag.osElementValues = new long[tagLength];
-                        int bytesWritten = 0;
-                        for(int y = 0; y < tagLength; y++) {
-                            tiffTag.elementValues[y] = ByteUtil.bytesToInt(svsFile.getBytes(offsetInSvs + currentOffsetInHeader, offsetInSvs + currentOffsetInHeader + 0x0000002));
-                            tiffTag.osElementValues[y] = offsetInSvs + currentOffsetInHeader;
-                            currentOffsetInHeader += 0x00000002;
-                            bytesWritten += 2;
+                        if(tagLength == 1 || !allArraysAreDereferenced) {
+                            TIFFTagShort tiffTag = new TIFFTagShort();
+                            tiffTagMap.put(tagName, tiffTag);
+                            tiffTag.name = tagName;
+                            tiffTag.osName = osTagName;
+                            tiffTag.length = tagLength;
+                            tiffTag.dataType = tagDataType;
+                            tiffTag.osDataType = osTagDataType;
+                            tiffTag.osLength = osTagLength;
+                            tiffTag.elementValues = new int[tagLength];
+                            tiffTag.osElementValues = new long[tagLength];
+                            int bytesRead = 0;
+                            for(int y = 0; y < tagLength; y++) {
+                                tiffTag.elementValues[y] = ByteUtil.bytesToShort(svsFile.getBytes(offsetInSvs + currentOffsetInHeader, offsetInSvs + currentOffsetInHeader + 0x0000002));
+                                tiffTag.osElementValues[y] = offsetInSvs + currentOffsetInHeader;
+                                currentOffsetInHeader += 0x00000002;
+                                bytesRead += 2;
+                            }
+                            while(bytesRead % svsFile.longLength != 0) {
+                                currentOffsetInHeader += 0x00000002;
+                                bytesRead += 2;
+                            }
                         }
-                        // makes sure we end on a word boundary
-                        while(bytesWritten % 8 != 0) {
-                            currentOffsetInHeader += 0x00000002;
-                            bytesWritten += 2;
+                        else {
+                            TIFFTagShortArrayReference tiffTag = new TIFFTagShortArrayReference();
+                            tiffTagMap.put(tagName, tiffTag);
+                            tiffTag.name = tagName;
+                            tiffTag.osName = osTagName;
+                            tiffTag.length = tagLength;
+                            tiffTag.dataType = tagDataType;
+                            tiffTag.osDataType = osTagDataType;
+                            tiffTag.osLength = osTagLength;
+                            tiffTag.elementValuesDereferenced = new int[tagLength];
+                            tiffTag.osElementValuesDereferenced = new long[tagLength];
+                            for(int y = 0; y < tagLength; y++) {
+                                tiffTag.osElementValuesDereferenced[y] = ByteUtil.bytesToLong(svsFile.getBytes(offsetInSvs + currentOffsetInHeader, offsetInSvs + currentOffsetInHeader + svsFile.longLength)) + (0x00000002 * y);
+                                tiffTag.elementValuesDereferenced[y] = (int)ByteUtil.bytesToLong(svsFile.getBytes(tiffTag.osElementValuesDereferenced[y], tiffTag.osElementValuesDereferenced[y] + 0x00000002));
+                            }
+                            tiffTag.osElementValue = offsetInSvs + currentOffsetInHeader;
+                            currentOffsetInHeader += svsFile.longLength;
                         }
                         break;
                     }
@@ -195,10 +250,10 @@ public class TIFFDir {
                         tiffTag.dataType = tagDataType;
                         tiffTag.osDataType = osTagDataType;
                         tiffTag.osLength = osTagLength;
-                        tiffTag.osElementValueDereferenced = ByteUtil.bytesToLong(svsFile.getBytes(offsetInSvs + currentOffsetInHeader, offsetInSvs + currentOffsetInHeader + 0x0000008));
+                        tiffTag.osElementValueDereferenced = ByteUtil.bytesToLong(svsFile.getBytes(offsetInSvs + currentOffsetInHeader, offsetInSvs + currentOffsetInHeader + svsFile.longLength));
                         tiffTag.elementValueDereferenced = new String(svsFile.getBytes(tiffTag.osElementValueDereferenced, tiffTag.osElementValueDereferenced + tiffTag.length));
                         tiffTag.osElementValue = offsetInSvs + currentOffsetInHeader;
-                        currentOffsetInHeader += 0x00000008;
+                        currentOffsetInHeader += svsFile.longLength;
                         break;
                     }
                     case 16: {
@@ -214,11 +269,10 @@ public class TIFFDir {
                             tiffTag.elementValues = new long[tagLength];
                             tiffTag.osElementValues = new long[tagLength];
                             for(int y = 0; y < tagLength; y++) {
-                                tiffTag.elementValues[y] = ByteUtil.bytesToLong(svsFile.getBytes(offsetInSvs + currentOffsetInHeader, offsetInSvs + currentOffsetInHeader + 0x0000008));
+                                tiffTag.elementValues[y] = ByteUtil.bytesToLong(svsFile.getBytes(offsetInSvs + currentOffsetInHeader, offsetInSvs + currentOffsetInHeader + svsFile.longLength));
                                 tiffTag.osElementValues[y] = offsetInSvs + currentOffsetInHeader;
-                                currentOffsetInHeader += 0x00000008;
+                                currentOffsetInHeader += svsFile.longLength;
                             }
-                            break;
                         }
                         else {
                             TIFFTagLongArrayReference tiffTag = new TIFFTagLongArrayReference();
@@ -232,11 +286,11 @@ public class TIFFDir {
                             tiffTag.elementValuesDereferenced = new long[tagLength];
                             tiffTag.osElementValuesDereferenced = new long[tagLength];
                             for(int y = 0; y < tagLength; y++) {
-                                tiffTag.osElementValuesDereferenced[y] = ByteUtil.bytesToLong(svsFile.getBytes(offsetInSvs + currentOffsetInHeader, offsetInSvs + currentOffsetInHeader + 0x0000008)) + (0x00000008 * y);
-                                tiffTag.elementValuesDereferenced[y] = ByteUtil.bytesToLong(svsFile.getBytes(tiffTag.osElementValuesDereferenced[y], tiffTag.osElementValuesDereferenced[y] + 0x00000008));
+                                tiffTag.osElementValuesDereferenced[y] = ByteUtil.bytesToLong(svsFile.getBytes(offsetInSvs + currentOffsetInHeader, offsetInSvs + currentOffsetInHeader + svsFile.longLength)) + (svsFile.longLength * y);
+                                tiffTag.elementValuesDereferenced[y] = ByteUtil.bytesToLong(svsFile.getBytes(tiffTag.osElementValuesDereferenced[y], tiffTag.osElementValuesDereferenced[y] + svsFile.longLength));
                             }
                             tiffTag.osElementValue = offsetInSvs + currentOffsetInHeader;
-                            currentOffsetInHeader += 0x00000008;
+                            currentOffsetInHeader += svsFile.longLength;
                         }
                         break;
                     }
@@ -249,20 +303,21 @@ public class TIFFDir {
                         tiffTag.dataType = tagDataType;
                         tiffTag.osDataType = osTagDataType;
                         tiffTag.osLength = osTagLength;
-                        tiffTag.osElementValueDereferenced = ByteUtil.bytesToLong(svsFile.getBytes(offsetInSvs + currentOffsetInHeader, offsetInSvs + currentOffsetInHeader + 0x0000008));
+                        tiffTag.osElementValueDereferenced = ByteUtil.bytesToLong(svsFile.getBytes(offsetInSvs + currentOffsetInHeader, offsetInSvs + currentOffsetInHeader + svsFile.longLength));
                         tiffTag.elementValuesDereferenced = svsFile.getBytes(tiffTag.osElementValueDereferenced, tiffTag.osElementValueDereferenced + tiffTag.length);
                         tiffTag.osElementValue = offsetInSvs + currentOffsetInHeader;
-                        currentOffsetInHeader += 0x00000008;
+                        currentOffsetInHeader += svsFile.longLength;
                         break;
                     }
                     default: {
-                        throw new RuntimeException(String.format("error parsing TIFF directory header tag #%d", x));
+                        System.err.println(String.format("error parsing TIFF directory header tag #%d (%d)", x, tagDataType));
+                        System.exit(1);
                     }
                 }
             }
-            tagNextDirOffsetInSvs = ByteUtil.bytesToLong(svsFile.getBytes(offsetInSvs + currentOffsetInHeader, offsetInSvs + currentOffsetInHeader + 0x00000008));
+            tagNextDirOffsetInSvs = ByteUtil.bytesToLong(svsFile.getBytes(offsetInSvs + currentOffsetInHeader, offsetInSvs + currentOffsetInHeader + svsFile.longLength));
             tagNextDirOffsetInSvsOffsetInSvs = offsetInSvs + currentOffsetInHeader;
-            currentOffsetInHeader += 0x00000008;
+            currentOffsetInHeader += svsFile.longLength;
         }
 
         {
@@ -282,13 +337,19 @@ public class TIFFDir {
             tagICCOffsetInSvs = tiffTagMap.get(34675) != null ? ((TIFFTagUndefinedReference)tiffTagMap.get(34675)).osElementValueDereferenced : -1;
             tagICCLength = tiffTagMap.get(34675) != null ? ((TIFFTagUndefinedReference)tiffTagMap.get(34675)).length : -1;
             tagICCNameOffsetInHeader = tiffTagMap.get(34675) != null ? (int)(((TIFFTagUndefinedReference)tiffTagMap.get(34675)).osName - offsetInSvs) : -1;
-            imageDataOffsetInSvs = tiffTagMap.get(273) != null ? (((TIFFTagLong)tiffTagMap.get(273)).elementValues[0]) : -1;
-            imageDataLength = tiffTagMap.get(279) != null ? (((TIFFTagLong)tiffTagMap.get(279)).elementValues[0]) : -1;
-            imageDataLengthOffsetInHeader = tiffTagMap.get(279) != null ? (int)(((TIFFTagLong)tiffTagMap.get(279)).osElementValues[0] - offsetInSvs) : -1;
+            tagJPEGTablesOffsetInSvs = tiffTagMap.get(347) != null ? ((TIFFTagUndefinedReference)tiffTagMap.get(347)).osElementValueDereferenced : -1;
+            tagJPEGTablesLength = tiffTagMap.get(347) != null ? ((TIFFTagUndefinedReference)tiffTagMap.get(347)).length : -1;
             tagTileOffsetsInSvs = tiffTagMap.get(324) != null ? ((TIFFTagLongArrayReference)tiffTagMap.get(324)).elementValuesDereferenced : null;
             tagTileOffsetsInSvsOffsetInSvs = tiffTagMap.get(324) != null ? ((TIFFTagLongArrayReference)tiffTagMap.get(324)).osElementValuesDereferenced : null;
             tagTileLengths = tiffTagMap.get(325) != null ? Arrays.stream(((TIFFTagLongArrayReference)tiffTagMap.get(325)).elementValuesDereferenced).mapToInt(i -> (int)i).toArray() : null;
             tagTileLengthsOffsetInSvs = tiffTagMap.get(325) != null ? ((TIFFTagLongArrayReference)tiffTagMap.get(325)).osElementValuesDereferenced : null;
+            // at the moment, for the non-tiled TIFF directories, I am only
+            // interested in the non-striped ones that the GT450 does
+            if(tiffTagMap.get(273) != null && tiffTagMap.get(273).length == 1) {
+                imageDataOffsetInSvs = tiffTagMap.get(273) != null ? (((TIFFTagLong)tiffTagMap.get(273)).elementValues[0]) : -1;
+                imageDataLength = tiffTagMap.get(279) != null ? (((TIFFTagLong)tiffTagMap.get(279)).elementValues[0]) : -1;
+                imageDataLengthOffsetInHeader = tiffTagMap.get(279) != null ? (int)(((TIFFTagLong)tiffTagMap.get(279)).osElementValues[0] - offsetInSvs) : -1;
+            }
         }
         
         if(tagTileOffsetsInSvs != null) {

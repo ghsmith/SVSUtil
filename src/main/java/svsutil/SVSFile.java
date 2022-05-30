@@ -76,6 +76,8 @@ public class SVSFile {
     public String svsFileName;
     public long length = -1;
     public long firstHeaderOffset = -1;
+    public long osFirstHeaderOffset = -1;
+    public int longLength = -1;
     
     public List<byte[]> svsBytesList = new ArrayList<>();
     public List<TIFFDir> tiffDirList = new ArrayList<>();
@@ -105,14 +107,23 @@ public class SVSFile {
         fis.close();
         
         logger.log(Level.INFO, String.format("read %d Mb from %s into %d buffers", length / (1024 * 1024), svsFileName, svsBytesList.size()));
-        
+
+        if(getByte(2) == 0x2b) {
+            osFirstHeaderOffset = 0x00000008;
+            longLength = 0x00000008;
+        }
+        else {
+            osFirstHeaderOffset = 0x00000004;
+            longLength = 0x00000004;
+        }
+        firstHeaderOffset = getBytesAsLong(osFirstHeaderOffset);
+            
         parseTIFFDirTags();
 
     }
 
     public void parseTIFFDirTags() {
-        firstHeaderOffset = getBytesAsLong(0x00000008);
-        long offset = firstHeaderOffset;
+        long offset = getBytesAsLong(osFirstHeaderOffset);
         int x = 0;
         while(offset != NO_MORE_TIFF_DIRECTORIES_OFFSET) {
             logger.log(Level.INFO, String.format("========== parsing TIFF directory #%d tags (%d) ==========", tiffDirList.size(), offset));
@@ -175,13 +186,13 @@ public class SVSFile {
         }
         
         logger.log(Level.INFO, String.format("resizing SVS file"));
-        
+
         // 1. update offsets in TIFF headers and referenced tile offset arrays
         {
             for(ResizeSegment resizeSegment : resizeSegmentList) {
                 resizeSegment.setEnd();
                 if(firstHeaderOffset >= resizeSegment.end) {
-                    setBytesToLong(0x00000008, getBytesAsLong(0x00000008) + resizeSegment.length);
+                    setBytesToLong(osFirstHeaderOffset, getBytesAsLong(osFirstHeaderOffset) + resizeSegment.length);
                 }
             }
             for(int x = 0; x < tiffDirList.size(); x++) {
@@ -324,28 +335,49 @@ public class SVSFile {
     }
 
     public long getBytesAsLong(long index) {
-        byte[] bytes = getBytes(index, index + 7);
-        return
-              ((((long)bytes[0]) & 0x00000000000000ffL) <<  0)
-            | ((((long)bytes[1]) & 0x00000000000000ffL) <<  8)
-            | ((((long)bytes[2]) & 0x00000000000000ffL) << 16)
-            | ((((long)bytes[3]) & 0x00000000000000ffL) << 24)
-            | ((((long)bytes[4]) & 0x00000000000000ffL) << 32)
-            | ((((long)bytes[5]) & 0x00000000000000ffL) << 40)
-            | ((((long)bytes[6]) & 0x00000000000000ffL) << 48);
+        if(longLength == 0x00000008) {
+            byte[] bytes = getBytes(index, index + 7);
+            return
+                  ((((long)bytes[0]) & 0x00000000000000ffL) <<  0)
+                | ((((long)bytes[1]) & 0x00000000000000ffL) <<  8)
+                | ((((long)bytes[2]) & 0x00000000000000ffL) << 16)
+                | ((((long)bytes[3]) & 0x00000000000000ffL) << 24)
+                | ((((long)bytes[4]) & 0x00000000000000ffL) << 32)
+                | ((((long)bytes[5]) & 0x00000000000000ffL) << 40)
+                | ((((long)bytes[6]) & 0x00000000000000ffL) << 48);
+        }
+        else {
+            byte[] bytes = getBytes(index, index + 7);
+            return
+                  ((((long)bytes[0]) & 0x00000000000000ffL) <<  0)
+                | ((((long)bytes[1]) & 0x00000000000000ffL) <<  8)
+                | ((((long)bytes[2]) & 0x00000000000000ffL) << 16)
+                | ((((long)bytes[3]) & 0x00000000000000ffL) << 24);
+        }
     }
     
     public void setBytesToLong(long index, long val) {
-        byte[] bytes = new byte[] {
-            (byte)(((val) & 0x00000000000000ffL) >>  0),
-            (byte)(((val) & 0x000000000000ff00L) >>  8),
-            (byte)(((val) & 0x0000000000ff0000L) >> 16),
-            (byte)(((val) & 0x00000000ff000000L) >> 24),
-            (byte)(((val) & 0x000000ff00000000L) >> 32),
-            (byte)(((val) & 0x0000ff0000000000L) >> 40),
-            (byte)(((val) & 0x00ff000000000000L) >> 48)
-        };
-        setBytes(index, index + 7, bytes);
+        if(longLength == 0x00000008) {
+            byte[] bytes = new byte[] {
+                (byte)(((val) & 0x00000000000000ffL) >>  0),
+                (byte)(((val) & 0x000000000000ff00L) >>  8),
+                (byte)(((val) & 0x0000000000ff0000L) >> 16),
+                (byte)(((val) & 0x00000000ff000000L) >> 24),
+                (byte)(((val) & 0x000000ff00000000L) >> 32),
+                (byte)(((val) & 0x0000ff0000000000L) >> 40),
+                (byte)(((val) & 0x00ff000000000000L) >> 48)
+            };
+            setBytes(index, index + 7, bytes);
+        }
+        else {
+            byte[] bytes = new byte[] {
+                (byte)(((val) & 0x00000000000000ffL) >>  0),
+                (byte)(((val) & 0x000000000000ff00L) >>  8),
+                (byte)(((val) & 0x0000000000ff0000L) >> 16),
+                (byte)(((val) & 0x00000000ff000000L) >> 24),
+            };
+            setBytes(index, index + 4, bytes);
+        }
     }
 
     // the tile ID consists of x.y.z

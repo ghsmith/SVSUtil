@@ -78,6 +78,8 @@ public class RecolorRunnerGT450 extends RecolorRunner {
             final PipedOutputStream outputStream = new PipedOutputStream();
             final PipedInputStream inputStream = new PipedInputStream(outputStream, 1000000);
             final Queue<String> tileIdQueue = new ConcurrentLinkedQueue<>();
+            final int tileWidth = svsFile.tiffDirList.get(0).tileWidth;
+            final int tileHeight = svsFile.tiffDirList.get(0).tileHeight;
 
             // doing the JPEG encoding and decoding in a separate thread
             // allows me to use use Java ImageIO streaming with piped streams
@@ -95,14 +97,14 @@ public class RecolorRunnerGT450 extends RecolorRunner {
                         Iterator<ImageReader> readers = ImageIO.getImageReadersByFormatName("jpeg");
                         ImageReader reader = readers.next();
                         reader.addIIOReadWarningListener((ImageReader source, String warning) -> {
-                            System.out.println(warning);
+                            System.err.println(warning);
                             System.exit(1);
                         });
                         ImageInputStream imageInputStream = new MemoryCacheImageInputStream(inputStream);
                         reader.setInput(imageInputStream);
 
-                        Iterator iter = ImageIO.getImageWritersByFormatName("jpeg");            
-                        ImageWriter writer = (ImageWriter)iter.next();
+                        Iterator<ImageWriter> writers = ImageIO.getImageWritersByFormatName("jpeg");            
+                        ImageWriter writer = writers.next();
                         JPEGImageWriteParam iwp = (JPEGImageWriteParam)writer.getDefaultWriteParam();
                         iwp.setCompressionMode(ImageWriteParam.MODE_EXPLICIT);
                         iwp.setCompressionQuality(quality / 100f);
@@ -124,12 +126,12 @@ public class RecolorRunnerGT450 extends RecolorRunner {
                             
                             String tileId = tileIdQueue.remove();
 
-                            final int[] imagePixels = new int[0x100 * 0x100];
-                            image.getRGB(0, 0, 0x100, 0x100, imagePixels, 0, 0x100);
+                            final int[] imagePixels = new int[tileWidth * tileHeight];
+                            image.getRGB(0, 0, tileWidth, tileHeight, imagePixels, 0, tileWidth);
                             if(!noRecolor) {
                                 Arrays.parallelSetAll(imagePixels, i -> svsFile.lutUpsampledInt[imagePixels[i] & 0x00ffffff]);
                             }
-                            image.setRGB(0, 0, 0x100, 0x100, imagePixels, 0, 0x100);
+                            image.setRGB(0, 0, tileWidth, tileHeight, imagePixels, 0, tileWidth);
                             
                             if(annotate) {
                                 TIFFDir tiffDir = svsFile.getTIFFDirForTileId(tileId);
@@ -189,8 +191,8 @@ public class RecolorRunnerGT450 extends RecolorRunner {
                                 tileContig.recoloredTileBytesMap.put(z + a + 1, svsFile.getBytes(tileContig.tagTileOffsetsInSvs[z + a + 1], tileContig.tagTileOffsetsInSvs[z + a + 1] + tileContig.tagTileLengths[z + a + 1]));
                             }
                             svsFile.nextTileNo += skip + 1;
-                            tileIdQueue.add(tileContig.id + "." + String.valueOf(tileContig.firstTileIndexInTIFFDir + z));
                         }
+                        tileIdQueue.add(tileContig.id + "." + String.valueOf(tileContig.firstTileIndexInTIFFDir + z));
                         outputStream.write(svsFile.getBytes(tileContig.tagTileOffsetsInSvs[z], tileContig.tagTileOffsetsInSvs[z] + tileContig.tagTileLengths[z]));
                     }
                 }
