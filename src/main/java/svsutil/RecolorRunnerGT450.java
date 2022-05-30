@@ -87,7 +87,7 @@ public class RecolorRunnerGT450 extends RecolorRunner {
             // of the tiles; I think this might be the fastest way to do JPEG
             // decoding and encoding versus using ImageIO in a more conventional
             // fashion
-            Thread jpgetStreamThread = new Thread(new Runnable() {
+            Thread jpegStreamThread = new Thread(new Runnable() {
 
                 @Override
                 public void run() {
@@ -144,8 +144,8 @@ public class RecolorRunnerGT450 extends RecolorRunner {
                                 graphics.setStroke(new BasicStroke(5f));
                                 graphics.drawLine(0, 0, 10, 10);
                                 graphics.drawLine(0, tiffDir.tileHeight - 1, 10, tiffDir.tileHeight - 11);
-                                graphics.drawLine(tiffDir.width - 1, tiffDir.tileHeight - 1, tiffDir.width - 1, tiffDir.tileHeight - 11);
-                                graphics.drawLine(tiffDir.width - 1, 0, tiffDir.width - 11, 10);
+                                graphics.drawLine(tiffDir.tileWidth - 1, tiffDir.tileHeight - 1, tiffDir.tileWidth - 1, tiffDir.tileHeight - 11);
+                                graphics.drawLine(tiffDir.tileWidth - 1, 0, tiffDir.tileWidth - 11, 10);
                                 graphics.setFont(new Font("TimesRoman", Font.BOLD, 30));
                                 FontMetrics metrics = graphics.getFontMetrics();
                                 graphics.drawString(tileId, 20, 1 * (metrics.getHeight() + 20));
@@ -174,7 +174,7 @@ public class RecolorRunnerGT450 extends RecolorRunner {
                 }    
                     
             });
-            jpgetStreamThread.start();
+            jpegStreamThread.start();
             
             int tileNo = -1;
             for(int x = startWithTiffDirIndex; x < svsFile.tiffDirList.size(); x++) {
@@ -199,7 +199,7 @@ public class RecolorRunnerGT450 extends RecolorRunner {
             }
             outputStream.flush();
             outputStream.close();
-            jpgetStreamThread.join(); // mucho important, the decoder/encoder thread might be lagging
+            jpegStreamThread.join(); // mucho important, the decoder/encoder thread might be lagging
                 
         }
         catch(Exception e) {

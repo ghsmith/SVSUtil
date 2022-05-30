@@ -221,7 +221,6 @@ public class ColorUtil {
                         byte[] tileBytes = tileContig.recoloredTileBytesMap.get(z);
                         svsFile.setBytesToLong(tileContig.tagTileOffsetsInSvsOffsetInSvs[z], tileOffsetInSvs);
                         svsFile.setBytesToLong(tileContig.tagTileLengthsOffsetInSvs[z], tileBytes.length);
-System.out.println(String.format("%d %d %d %d %d", tileOffsetInSvs, tileOffsetInSvs+tileBytes.length, x , y, z));
                         svsFile.setBytes(tileOffsetInSvs, tileOffsetInSvs + tileBytes.length, tileBytes);
                         tileOffsetInSvs += tileBytes.length;
                     }

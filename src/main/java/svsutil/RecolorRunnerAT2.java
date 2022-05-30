@@ -40,6 +40,7 @@ import java.util.List;
 import java.util.Queue;
 import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.logging.Logger;
+import javax.imageio.IIOException;
 import javax.imageio.IIOImage;
 import javax.imageio.ImageIO;
 import javax.imageio.ImageReader;
@@ -88,154 +89,173 @@ public class RecolorRunnerAT2 extends RecolorRunner {
     public void run() {
         try {
             
-            final PipedOutputStream outputStream = new PipedOutputStream();
-            final PipedInputStream inputStream = new PipedInputStream(outputStream, 1000000);
-            final Queue<String> tileIdQueue = new ConcurrentLinkedQueue<>();
-            final int tileWidth = svsFile.tiffDirList.get(0).tileWidth;
-            final int tileHeight = svsFile.tiffDirList.get(0).tileHeight;
-
-            // doing the JPEG encoding and decoding in a separate thread
-            // allows me to use use Java ImageIO streaming with piped streams
-            // and use a single image reader and single image writer for all
-            // of the tiles; I think this might be the fastest way to do JPEG
-            // decoding and encoding versus using ImageIO in a more conventional
-            // fashion
-            Thread jpgetStreamThread = new Thread(new Runnable() {
-
-                @Override
-                public void run() {
-                    
-                    try {
-
-                        Iterator<ImageReader> readers = ImageIO.getImageReadersByFormatName("jpeg");
-                        ImageReader reader = readers.next();
-                        reader.addIIOReadWarningListener((ImageReader source, String warning) -> {
-                            System.out.println(warning);
-                            System.exit(1);
-                        });
-                        ImageInputStream imageInputStream = new MemoryCacheImageInputStream(inputStream);
-                        reader.setInput(imageInputStream);
-
-                        Iterator iter = ImageIO.getImageWritersByFormatName("jpeg");            
-                        ImageWriter writer = (ImageWriter)iter.next();
-                        JPEGImageWriteParam iwp = (JPEGImageWriteParam)writer.getDefaultWriteParam();
-                        // Unless MODE_COPY_FROM_METADATA, tables will be created! With
-                        // the AT2 SVS files, the JPEG tables are stored separately from
-                        // tile bytes and the same JPEG tables are used for all tiles,
-                        // to we don't want the JPEG tables in the tile data with an
-                        // AT2 SVS.
-                        iwp.setCompressionMode(MODE_COPY_FROM_METADATA);
-                        ByteArrayOutputStream imageOutputStreamByteStream = new ByteArrayOutputStream(10000000);
-                        ImageOutputStream imageOutputStream = new MemoryCacheImageOutputStream(imageOutputStreamByteStream);
-                        writer.setOutput(imageOutputStream);
-
-                        int imageIndex = 0;
-
-                        while(true) {
-
-                            BufferedImage image = null;
-                            try {
-                                image = reader.read(imageIndex);
-                            }
-                            catch(IndexOutOfBoundsException e) {
-                                break; // this will happen when the pipe closes
-                            }
-                            
-                            // THE JPEG TABLES IN THE SVS MUST BE THE FIRST
-                            // THING IN THE JPEG STREAM!
-                            if(iwp.getQTables() == null || iwp.getDCHuffmanTables() == null || iwp.getACHuffmanTables() == null) {
-
-                                IIOMetadataNode node = (IIOMetadataNode)reader.getStreamMetadata().getAsTree("javax_imageio_jpeg_stream_1.0");
-
-                                List<JPEGQTable> jpegQTableList = new java.util.ArrayList<>();
-                                {
-                                    NodeList nodeList = node.getElementsByTagName("dqt");
-                                    for(int x = 0; x < nodeList.getLength(); x ++) {
-                                        jpegQTableList.add((JPEGQTable)((IIOMetadataNode)nodeList.item(x).getFirstChild()).getUserObject());
-                                    }
-                                }
-
-                                List<JPEGHuffmanTable> jpegHuffmanTableListClass0 = new java.util.ArrayList<>();
-                                List<JPEGHuffmanTable> jpegHuffmanTableListClass1 = new java.util.ArrayList<>();
-                                {
-                                    NodeList nodeList = node.getElementsByTagName("dht");
-                                    for(int x = 0; x < nodeList.getLength(); x ++) {
-                                        if(nodeList.item(x).getFirstChild().getAttributes().getNamedItem("class").getNodeValue().equals("0")) {
-                                            jpegHuffmanTableListClass0.add((JPEGHuffmanTable)((IIOMetadataNode)nodeList.item(x).getFirstChild()).getUserObject());
-                                        }
-                                        else if(nodeList.item(x).getFirstChild().getAttributes().getNamedItem("class").getNodeValue().equals("1")) {
-                                            jpegHuffmanTableListClass1.add((JPEGHuffmanTable)((IIOMetadataNode)nodeList.item(x).getFirstChild()).getUserObject());
-                                        }
-                                    }
-                                }
-
-                                iwp.setEncodeTables(
-                                    jpegQTableList.toArray(new JPEGQTable[2]),
-                                    jpegHuffmanTableListClass0.toArray(new JPEGHuffmanTable[2]),
-                                    jpegHuffmanTableListClass1.toArray(new JPEGHuffmanTable[2])
-                                );
-
-                            }
-
-                            String tileId = tileIdQueue.remove();
-
-                            final int[] imagePixels = new int[tileWidth * tileHeight];
-                            image.getRGB(0, 0, tileWidth, tileHeight, imagePixels, 0, tileWidth);
-                            if(!noRecolor) {
-                                Arrays.parallelSetAll(imagePixels, i -> svsFile.lutUpsampledInt[imagePixels[i] & 0x00ffffff]);
-                            }
-                            image.setRGB(0, 0, tileWidth, tileHeight, imagePixels, 0, tileWidth);
-                            
-                            if(annotate) {
-                                TIFFDir tiffDir = svsFile.getTIFFDirForTileId(tileId);
-                                TIFFTileContig tileContig = svsFile.getTileContigForTileId(tileId);
-                                int tileIndex = svsFile.getTileIndexForTileId(tileId);
-                                int tileX = (tileIndex) % (int)Math.ceil(1f * tiffDir.width / tiffDir.tileWidth);
-                                int tileY = (tileIndex) / (int)Math.ceil(1f * tiffDir.width / tiffDir.tileHeight);
-                                Graphics2D graphics = image.createGraphics();
-                                graphics.setColor(Color.BLACK);
-                                graphics.setStroke(new BasicStroke(5f));
-                                graphics.drawLine(0, 0, 10, 10);
-                                graphics.drawLine(0, tiffDir.tileHeight - 1, 10, tiffDir.tileHeight - 11);
-                                graphics.drawLine(tiffDir.width - 1, tiffDir.tileHeight - 1, tiffDir.width - 1, tiffDir.tileHeight - 11);
-                                graphics.drawLine(tiffDir.width - 1, 0, tiffDir.width - 11, 10);
-                                graphics.setFont(new Font("TimesRoman", Font.BOLD, 30));
-                                FontMetrics metrics = graphics.getFontMetrics();
-                                graphics.drawString(tileId, 20, 1 * (metrics.getHeight() + 20));
-                                graphics.drawString(String.format("%d x %d", tileX, tileY), 20, 2 * (metrics.getHeight() + 20));                            
-                                graphics.drawString(String.format("%4.2f mpp", tiffDir.mpp), 20, 3 * (metrics.getHeight() + 20));                            
-                            }
-                            
-                            IIOMetadata imageMetadata = reader.getImageMetadata(imageIndex);
-                            IIOImage iioImage = new IIOImage(image, null, null);
-                            iioImage.setMetadata(imageMetadata);
-                            imageOutputStreamByteStream.reset();
-                            writer.write(null, iioImage, iwp);
-                            imageOutputStream.flush();
-                            svsFile.setRecoloredTileBytesForTileId(tileId, imageOutputStreamByteStream.toByteArray());
-
-                            imageIndex++;
-
-                        }
-
-                    }
-                    catch(IOException e) {
-                        e.printStackTrace();
-                        System.exit(1);
-                    }
-                    
-                }    
-                    
-            });
-            jpgetStreamThread.start();
-            
             int tileNo = -1;
             for(int x = startWithTiffDirIndex; x < svsFile.tiffDirList.size(); x++) {
+
+                // skip the label, macro, etc.
                 TIFFDir tiffDir = svsFile.tiffDirList.get(x);
-                // right now I'm assumming the same JPEG tables are used for all TIFF directories
-                if(x == 0) {
-                    outputStream.write(svsFile.getBytes(tiffDir.tagJPEGTablesOffsetInSvs, tiffDir.tagJPEGTablesOffsetInSvs + tiffDir.tagJPEGTablesLength));
+                if(tiffDir.tagJPEGTablesOffsetInSvs == -1) {
+                    continue;
                 }
+                
+                final PipedOutputStream outputStream = new PipedOutputStream();
+                final PipedInputStream inputStream = new PipedInputStream(outputStream, 1000000);
+                final Queue<String> tileIdQueue = new ConcurrentLinkedQueue<>();
+                final int tileWidth = svsFile.tiffDirList.get(0).tileWidth;
+                final int tileHeight = svsFile.tiffDirList.get(0).tileHeight;
+
+                // doing the JPEG encoding and decoding in a separate thread
+                // allows me to use use Java ImageIO streaming with piped streams
+                // and use a single image reader and single image writer for all
+                // of the tiles; I think this might be the fastest way to do JPEG
+                // decoding and encoding versus using ImageIO in a more conventional
+                // fashion
+                Thread jpegStreamThread = new Thread(new Runnable() {
+
+                    public ImageReader reader = null;
+
+                    @Override
+                    public void run() {
+
+                        try {
+
+                            Iterator<ImageReader> readers = ImageIO.getImageReadersByFormatName("jpeg");
+                            reader = readers.next();
+                            reader.addIIOReadWarningListener((ImageReader source, String warning) -> {
+                                System.out.println(warning);
+                                System.exit(1);
+                            });
+                            ImageInputStream imageInputStream = new MemoryCacheImageInputStream(inputStream);
+                            reader.setInput(imageInputStream);
+
+                            Iterator iter = ImageIO.getImageWritersByFormatName("jpeg");            
+                            ImageWriter writer = (ImageWriter)iter.next();
+                            JPEGImageWriteParam iwp = (JPEGImageWriteParam)writer.getDefaultWriteParam();
+                            // Unless MODE_COPY_FROM_METADATA, tables will be created! With
+                            // the AT2 SVS files, the JPEG tables are stored separately from
+                            // tile bytes and the same JPEG tables are used for all tiles,
+                            // to we don't want the JPEG tables in the tile data with an
+                            // AT2 SVS.
+                            iwp.setCompressionMode(MODE_COPY_FROM_METADATA);
+                            ByteArrayOutputStream imageOutputStreamByteStream = new ByteArrayOutputStream(10000000);
+                            ImageOutputStream imageOutputStream = new MemoryCacheImageOutputStream(imageOutputStreamByteStream);
+                            writer.setOutput(imageOutputStream);
+
+                            int imageIndex = 0;
+
+                            while(true) {
+
+                                BufferedImage image = null;
+                                try {
+                                    image = reader.read(imageIndex);
+                                }
+                                catch(IndexOutOfBoundsException e) {
+                                    break; // this will happen when the pipe closes
+                                }
+                                // this one is probably a bad idea...
+                                catch(IIOException e) {
+                                    if("No image data present to read".equals(e.getMessage())) {
+                                        break; // this will happen when the pipe closes if the thread never gets a tile to convert
+                                    }
+                                    throw e;
+                                }
+
+                                // THE JPEG TABLES IN THE SVS MUST BE THE FIRST
+                                // THING IN THE JPEG STREAM!
+                                if(iwp.getQTables() == null || iwp.getDCHuffmanTables() == null || iwp.getACHuffmanTables() == null) {
+
+                                    IIOMetadataNode node = (IIOMetadataNode)reader.getStreamMetadata().getAsTree("javax_imageio_jpeg_stream_1.0");
+
+                                    List<JPEGQTable> jpegQTableList = new java.util.ArrayList<>();
+                                    {
+                                        NodeList nodeList = node.getElementsByTagName("dqt");
+                                        for(int x = 0; x < nodeList.getLength(); x ++) {
+                                            jpegQTableList.add((JPEGQTable)((IIOMetadataNode)nodeList.item(x).getFirstChild()).getUserObject());
+                                        }
+                                    }
+
+                                    List<JPEGHuffmanTable> jpegHuffmanTableListClass0 = new java.util.ArrayList<>();
+                                    List<JPEGHuffmanTable> jpegHuffmanTableListClass1 = new java.util.ArrayList<>();
+                                    {
+                                        NodeList nodeList = node.getElementsByTagName("dht");
+                                        for(int x = 0; x < nodeList.getLength(); x ++) {
+                                            if(nodeList.item(x).getFirstChild().getAttributes().getNamedItem("class").getNodeValue().equals("0")) {
+                                                jpegHuffmanTableListClass0.add((JPEGHuffmanTable)((IIOMetadataNode)nodeList.item(x).getFirstChild()).getUserObject());
+                                            }
+                                            else if(nodeList.item(x).getFirstChild().getAttributes().getNamedItem("class").getNodeValue().equals("1")) {
+                                                jpegHuffmanTableListClass1.add((JPEGHuffmanTable)((IIOMetadataNode)nodeList.item(x).getFirstChild()).getUserObject());
+                                            }
+                                        }
+                                    }
+
+                                    iwp.setEncodeTables(
+                                        jpegQTableList.toArray(new JPEGQTable[2]),
+                                        jpegHuffmanTableListClass0.toArray(new JPEGHuffmanTable[2]),
+                                        jpegHuffmanTableListClass1.toArray(new JPEGHuffmanTable[2])
+                                    );
+
+                                }
+
+                                String tileId = tileIdQueue.remove();
+
+                                final int[] imagePixels = new int[tileWidth * tileHeight];
+                                image.getRGB(0, 0, tileWidth, tileHeight, imagePixels, 0, tileWidth);
+                                if(!noRecolor) {
+                                    Arrays.parallelSetAll(imagePixels, i -> svsFile.lutUpsampledInt[imagePixels[i] & 0x00ffffff]);
+                                }
+                                image.setRGB(0, 0, tileWidth, tileHeight, imagePixels, 0, tileWidth);
+
+                                if(annotate) {
+                                    TIFFDir tiffDir = svsFile.getTIFFDirForTileId(tileId);
+                                    TIFFTileContig tileContig = svsFile.getTileContigForTileId(tileId);
+                                    int tileIndex = svsFile.getTileIndexForTileId(tileId);
+                                    int tileX = (tileIndex) % (int)Math.ceil(1f * tiffDir.width / tiffDir.tileWidth);
+                                    int tileY = (tileIndex) / (int)Math.ceil(1f * tiffDir.width / tiffDir.tileHeight);
+                                    Graphics2D graphics = image.createGraphics();
+                                    graphics.setColor(Color.BLACK);
+                                    graphics.setStroke(new BasicStroke(5f));
+                                    graphics.drawLine(0, 0, 10, 10);
+                                    graphics.drawLine(0, tiffDir.tileHeight - 1, 10, tiffDir.tileHeight - 11);
+                                    graphics.drawLine(tiffDir.tileWidth - 1, tiffDir.tileHeight - 1, tiffDir.tileWidth - 11, tiffDir.tileHeight - 11);
+                                    graphics.drawLine(tiffDir.tileWidth - 1, 0, tiffDir.tileWidth - 11, 10);
+                                    graphics.setFont(new Font("TimesRoman", Font.BOLD, 30));
+                                    FontMetrics metrics = graphics.getFontMetrics();
+                                    graphics.drawString(tileId, 20, 1 * (metrics.getHeight() + 20));
+                                    graphics.drawString(String.format("%d x %d", tileX, tileY), 20, 2 * (metrics.getHeight() + 20));                            
+                                    graphics.drawString(String.format("%4.2f mpp", tiffDir.mpp), 20, 3 * (metrics.getHeight() + 20));                            
+                                }
+
+                                IIOMetadata imageMetadata = reader.getImageMetadata(imageIndex);
+                                IIOImage iioImage = new IIOImage(image, null, null);
+                                iioImage.setMetadata(imageMetadata);
+                                imageOutputStreamByteStream.reset();
+                                writer.write(null, iioImage, iwp);
+                                imageOutputStream.flush();
+                                // remove the APP14 segment
+                                byte[] imageOutputBytes = imageOutputStreamByteStream.toByteArray();
+                                byte[] imageOutputBytesNoApp14 = new byte[imageOutputBytes.length - 16];
+                                System.arraycopy(imageOutputBytes, 0, imageOutputBytesNoApp14, 0, 2);
+                                System.arraycopy(imageOutputBytes, 18, imageOutputBytesNoApp14, 2, imageOutputBytesNoApp14.length - 2);
+                                svsFile.setRecoloredTileBytesForTileId(tileId, imageOutputBytesNoApp14);
+
+                                imageIndex++;
+
+                            }
+
+                        }
+                        catch(IOException e) {
+                            e.printStackTrace();
+                            System.exit(1);
+                        }
+
+                    }    
+
+                });
+                jpegStreamThread.start();
+                
+                // the JPEG tables in the TIDD directories are different
+                outputStream.write(svsFile.getBytes(tiffDir.tagJPEGTablesOffsetInSvs, tiffDir.tagJPEGTablesOffsetInSvs + tiffDir.tagJPEGTablesLength));
+
                 for(int y = 0; y < tiffDir.tileContigList.size(); y++) {
                     TIFFTileContig tileContig = tiffDir.tileContigList.get(y);
                     for(int z = 0; z < tileContig.tagTileOffsetsInSvs.length; z++) {
@@ -255,10 +275,12 @@ public class RecolorRunnerAT2 extends RecolorRunner {
                         outputStream.write(svsFile.getBytes(tileContig.tagTileOffsetsInSvs[z] + 2, tileContig.tagTileOffsetsInSvs[z] + tileContig.tagTileLengths[z]));
                     }
                 }
+
+                outputStream.flush();
+                outputStream.close();
+                jpegStreamThread.join(); // mucho importante, the decoder/encoder thread might be lagging
+
             }
-            outputStream.flush();
-            outputStream.close();
-            jpgetStreamThread.join(); // mucho important, the decoder/encoder thread might be lagging
                 
         }
         catch(Exception e) {

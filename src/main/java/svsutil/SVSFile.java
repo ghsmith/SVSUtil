@@ -211,12 +211,6 @@ public class SVSFile {
                                 }
                             }
                         }
-                        else if(tiffTag instanceof TIFFDir.TIFFTagASCIIReference) {
-                            TIFFDir.TIFFTagASCIIReference tiffTagASCIIReference = (TIFFDir.TIFFTagASCIIReference)tiffTag;
-                            if(tiffTagASCIIReference.osElementValueDereferenced >= resizeSegment.end) {
-                                setBytesToLong(tiffTagASCIIReference.osElementValue, getBytesAsLong(tiffTagASCIIReference.osElementValue) + resizeSegment.length);
-                            }
-                        }
                         else if(tiffTag instanceof TIFFDir.TIFFTagLongArrayReference) {
                             TIFFDir.TIFFTagLongArrayReference tiffTagLongArrayReference = (TIFFDir.TIFFTagLongArrayReference)tiffTag;
                             if(tiffTagLongArrayReference.osElementValuesDereferenced[0] >= resizeSegment.end) {
@@ -228,6 +222,18 @@ public class SVSFile {
                                         setBytesToLong(tiffTagLongArrayReference.osElementValuesDereferenced[y], getBytesAsLong(tiffTagLongArrayReference.osElementValuesDereferenced[y]) + resizeSegment.length);
                                     }
                                 }
+                            }
+                        }
+                        else if(tiffTag instanceof TIFFDir.TIFFTagShortArrayReference) {
+                            TIFFDir.TIFFTagShortArrayReference tiffTagShortArrayReference = (TIFFDir.TIFFTagShortArrayReference)tiffTag;
+                            if(tiffTagShortArrayReference.osElementValuesDereferenced[0] >= resizeSegment.end) {
+                                setBytesToLong(tiffTagShortArrayReference.osElementValue, getBytesAsLong(tiffTagShortArrayReference.osElementValue) + resizeSegment.length);
+                            }
+                        }
+                        else if(tiffTag instanceof TIFFDir.TIFFTagASCIIReference) {
+                            TIFFDir.TIFFTagASCIIReference tiffTagASCIIReference = (TIFFDir.TIFFTagASCIIReference)tiffTag;
+                            if(tiffTagASCIIReference.osElementValueDereferenced >= resizeSegment.end) {
+                                setBytesToLong(tiffTagASCIIReference.osElementValue, getBytesAsLong(tiffTagASCIIReference.osElementValue) + resizeSegment.length);
                             }
                         }
                         else if(tiffTag instanceof TIFFDir.TIFFTagUndefinedReference) {
