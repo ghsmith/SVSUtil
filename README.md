@@ -4,7 +4,7 @@ These utilities have been tested with ScanScope Virtual Slide (SVS) files acquir
 
 If you try these utilities on an SVS file created by another Leica/Aperio scanner model and/or something doesn't work, let me know (geoffrey.smith@emory.edu) and I'll work on it!
 
-This is a Java project that builds an executable JAR with Maven (i.e., "mvn package"). This project uses the J2SE API and does not rely on any native libraries (e.g. OpenSlide). An LZW encoder/decoder from https://haraldk.github.io/TwelveMonkeys/ is used (slide labels are LZW encoded).
+This project uses the J2SE API and does not rely on any native libraries (e.g. OpenSlide). The standard Java ImageIO API and color management system (I believe the OpenJDK uses Little-CMS) included with modern releases of OpenJDK virutal machine provide excellent performance for working with JPEG content in SVS files. An LZW encoder/decoder from https://haraldk.github.io/TwelveMonkeys/ project is used (slide labels are LZW encoded and there is no LZW encoder/decoder in the J2SE API). This is a Java project that builds an executable JAR with Maven (i.e., "mvn package").
 
 ```
 git clone https://github.com/ghsmith/SVSUtil
