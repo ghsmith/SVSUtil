@@ -132,7 +132,7 @@ The JPEG tiles in the AT2 SVS files are unusual and much more difficult to work 
 
 The tile bytes in #0 are ordered in the SVS files in columns (the GT450 uses rows, not columns) from left-to-right and then top-to-bottom within each column (i.e., the first tile in the SVS file is the tile at the top-left corner, the second tile is the tile below that one, etc.). The tile bytes for #2 and #3 are ordered in the SVS files from left-to-right and then top-to-bottom, similarly to the GT450 SVS files (i.e., the first tile in the SVS file is the tile at the top-left corner, the second tile is the tile to the right of that one, etc.).
 
-Finally, the label image uses "classic" TIFF strips, where the horizontally-differenced LZW-encoded 24-bit bitmap image is divided into horizontal strips. "Labelutil" is currently not compatible with TIFF strips and does not work with AT2 SVS files. I will work on fixing this soon.
+Finally, the label image uses "classic" TIFF strips, where the horizontally-differenced LZW-encoded 24-bit color bitmap image is divided into horizontal strips. "Labelutil" is currently not compatible with TIFF strips and does not work with AT2 SVS files. I will work on fixing this soon.
 
 ### Leica/Aperio AT2 operated at 40x / one focal plane
 
