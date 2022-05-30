@@ -45,7 +45,7 @@ The following SVS was created from a GT450 scan using this command line:
 
 The AT2 acquires images with a color gamut that is almost conventional, so the color differences between the raw and color-corrected tiles are more subtle with the AT2 than they are with the GT450. The tiles with annotations have been color-corrected and appear slightly pinker than the tiles without annotations. The following SVS was created from an AT2 scan using this command line:
 
- `java -jar svsutil.jar colorutil -t16 -r -a -s 1 test_at2.svs`
+ `java -jar svsutil.jar colorutil -t16 -r -a -s1 test_at2.svs`
 
 ![another_example of a recolored SVS in ImageScope](recolor_example_at2.png)
 
