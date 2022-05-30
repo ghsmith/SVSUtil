@@ -76,6 +76,10 @@ public class RecolorRunnerAT2 extends RecolorRunner {
 
     static final Logger logger = Logger.getLogger(RecolorRunnerAT2.class.getName());    
 
+    public static final byte[] JPEG_APP14_SEGMENT = new byte[] {
+        (byte)0xff, (byte)0xee, (byte)0x00, (byte)0x0e, (byte)0x41, (byte)0x64, (byte)0x6F, (byte)0x62, (byte)0x65, (byte)0x00, (byte)0x00, (byte)0x00, (byte)0x00, (byte)0x00, (byte)0x00, (byte)0x00
+    };
+
     public RecolorRunnerAT2(SVSFile svsFile, int quality, int skip, boolean noRecolor, boolean annotate, int startWithTiffDirIndex) {
         super(svsFile, quality, skip, noRecolor, annotate, startWithTiffDirIndex);
     }
@@ -87,6 +91,8 @@ public class RecolorRunnerAT2 extends RecolorRunner {
             final PipedOutputStream outputStream = new PipedOutputStream();
             final PipedInputStream inputStream = new PipedInputStream(outputStream, 1000000);
             final Queue<String> tileIdQueue = new ConcurrentLinkedQueue<>();
+            final int tileWidth = svsFile.tiffDirList.get(0).tileWidth;
+            final int tileHeight = svsFile.tiffDirList.get(0).tileHeight;
 
             // doing the JPEG encoding and decoding in a separate thread
             // allows me to use use Java ImageIO streaming with piped streams
@@ -135,8 +141,6 @@ public class RecolorRunnerAT2 extends RecolorRunner {
                                 break; // this will happen when the pipe closes
                             }
                             
-                            String tileId = tileIdQueue.remove();
-
                             // THE JPEG TABLES IN THE SVS MUST BE THE FIRST
                             // THING IN THE JPEG STREAM!
                             if(iwp.getQTables() == null || iwp.getDCHuffmanTables() == null || iwp.getACHuffmanTables() == null) {
@@ -173,13 +177,14 @@ public class RecolorRunnerAT2 extends RecolorRunner {
 
                             }
 
+                            String tileId = tileIdQueue.remove();
 
-                            final int[] imagePixels = new int[0x100 * 0x100];
-                            image.getRGB(0, 0, 0x100, 0x100, imagePixels, 0, 0x100);
+                            final int[] imagePixels = new int[tileWidth * tileHeight];
+                            image.getRGB(0, 0, tileWidth, tileHeight, imagePixels, 0, tileWidth);
                             if(!noRecolor) {
                                 Arrays.parallelSetAll(imagePixels, i -> svsFile.lutUpsampledInt[imagePixels[i] & 0x00ffffff]);
                             }
-                            image.setRGB(0, 0, 0x100, 0x100, imagePixels, 0, 0x100);
+                            image.setRGB(0, 0, tileWidth, tileHeight, imagePixels, 0, tileWidth);
                             
                             if(annotate) {
                                 TIFFDir tiffDir = svsFile.getTIFFDirForTileId(tileId);
@@ -227,6 +232,10 @@ public class RecolorRunnerAT2 extends RecolorRunner {
             int tileNo = -1;
             for(int x = startWithTiffDirIndex; x < svsFile.tiffDirList.size(); x++) {
                 TIFFDir tiffDir = svsFile.tiffDirList.get(x);
+                // right now I'm assumming the same JPEG tables are used for all TIFF directories
+                if(x == 0) {
+                    outputStream.write(svsFile.getBytes(tiffDir.tagJPEGTablesOffsetInSvs, tiffDir.tagJPEGTablesOffsetInSvs + tiffDir.tagJPEGTablesLength));
+                }
                 for(int y = 0; y < tiffDir.tileContigList.size(); y++) {
                     TIFFTileContig tileContig = tiffDir.tileContigList.get(y);
                     for(int z = 0; z < tileContig.tagTileOffsetsInSvs.length; z++) {
@@ -239,9 +248,11 @@ public class RecolorRunnerAT2 extends RecolorRunner {
                                 tileContig.recoloredTileBytesMap.put(z + a + 1, svsFile.getBytes(tileContig.tagTileOffsetsInSvs[z + a + 1], tileContig.tagTileOffsetsInSvs[z + a + 1] + tileContig.tagTileLengths[z + a + 1]));
                             }
                             svsFile.nextTileNo += skip + 1;
-                            tileIdQueue.add(tileContig.id + "." + String.valueOf(tileContig.firstTileIndexInTIFFDir + z));
                         }
-                        outputStream.write(svsFile.getBytes(tileContig.tagTileOffsetsInSvs[z], tileContig.tagTileOffsetsInSvs[z] + tileContig.tagTileLengths[z]));
+                        tileIdQueue.add(tileContig.id + "." + String.valueOf(tileContig.firstTileIndexInTIFFDir + z));
+                        outputStream.write(svsFile.getBytes(tileContig.tagTileOffsetsInSvs[z], tileContig.tagTileOffsetsInSvs[z] + 2));
+                        outputStream.write(JPEG_APP14_SEGMENT);
+                        outputStream.write(svsFile.getBytes(tileContig.tagTileOffsetsInSvs[z] + 2, tileContig.tagTileOffsetsInSvs[z] + tileContig.tagTileLengths[z]));
                     }
                 }
             }
