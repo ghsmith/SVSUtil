@@ -36,6 +36,7 @@ import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
@@ -47,24 +48,6 @@ public class SVSFile {
 
     static final Logger logger = Logger.getLogger(SVSFile.class.getName());
     
-    static public class ResizeSegment {
-        public long start = -1;
-        public long length = -1; // negative = compress / positive = expand
-        public long end = -1;
-        public ResizeSegment(long start, long length) {
-            this.start = start;
-            this.length = length;
-        }
-        public void setEnd() {
-            if(length < 0) {
-                end = start + Math.abs(length);
-            }
-            else {
-                end = start;
-            }
-        }
-    }
-
     public static final int BUFFER_SIZE = 250000000;
     
     public static final int R = 0;
@@ -86,6 +69,9 @@ public class SVSFile {
     public boolean lutComputed = false;
     public int[][][][] lutUpsampled = new int[0x100][0x100][0x100][3];
     public int[] lutUpsampledInt = new int[0x100 * 0x100 * 0x100];
+
+    Map<String, Tile> tileMap = new HashMap<>();
+    Map<String, byte[]> recoloredTileBytesMap = new ConcurrentHashMap<>();
 
     public Integer nextTileNo = 0;
     
@@ -130,7 +116,7 @@ public class SVSFile {
             TIFFDir tiffDir = new TIFFDir(String.valueOf(x), this, offset);
             tiffDirList.add(tiffDir);
             logger.log(Level.INFO, String.format("width=%d height=%d tileWidth=%d tileHeight=%d mpp=%4.2f", tiffDir.width, tiffDir.height, tiffDir.tileWidth, tiffDir.tileHeight, tiffDir.mpp));
-            if(!tiffDir.tileContigList.isEmpty() && tiffDir.tagICCNameOffsetInHeader != -1 && iccBytes == null ) {
+            if(x == 0) {
                 iccBytes = getBytes(tiffDir.tagICCOffsetInSvs, tiffDir.tagICCOffsetInSvs + tiffDir.tagICCLength);
             }
             offset = tiffDir.tagNextDirOffsetInSvs;
@@ -216,7 +202,7 @@ public class SVSFile {
                             if(tiffTagLongArrayReference.osElementValuesDereferenced[0] >= resizeSegment.end) {
                                 setBytesToLong(tiffTagLongArrayReference.osElementValue, getBytesAsLong(tiffTagLongArrayReference.osElementValue) + resizeSegment.length);
                             }
-                            if(tiffTagLongArrayReference.name == 324) { // TileOffsets (tiled image data)
+                            if(tiffTagLongArrayReference.name == 324 || tiffTagLongArrayReference.name == 273) { // TileOffsets (tiled image data) and StripOffsets (non-tiled image data)
                                 for(int y = 0; y < tiffTagLongArrayReference.elementValuesDereferenced.length; y++) {
                                     if(tiffTagLongArrayReference.elementValuesDereferenced[y] >= resizeSegment.end) {
                                         setBytesToLong(tiffTagLongArrayReference.osElementValuesDereferenced[y], getBytesAsLong(tiffTagLongArrayReference.osElementValuesDereferenced[y]) + resizeSegment.length);
@@ -279,21 +265,8 @@ public class SVSFile {
             }
             length = lengthResized;
             svsBytesList = svsBytesResizedList;
-            Map<String, Map<Integer, byte[]>> recoloredTileBytesMapMap = new HashMap<>();
-            // save recolored image tiles...
-            for(TIFFDir tiffDir : tiffDirList) {
-                for(TIFFTileContig tileContig : tiffDir.tileContigList) {
-                    recoloredTileBytesMapMap.put(tileContig.id, tileContig.recoloredTileBytesMap);
-                }
-            }
             tiffDirList = new ArrayList<>();
             parseTIFFDirTags();
-            // ...and restore recolored image tiles
-            for(TIFFDir tiffDir : tiffDirList) {
-                for(TIFFTileContig tileContig : tiffDir.tileContigList) {
-                    tileContig.recoloredTileBytesMap = recoloredTileBytesMapMap.get(tileContig.id);
-                }
-            }
         }
         
     }
@@ -385,46 +358,23 @@ public class SVSFile {
             setBytes(index, index + 4, bytes);
         }
     }
-
-    // the tile ID consists of x.y.z
-    // x = TIFF directory index
-    // y = TIFF contig index
-    // z = TIFF tile index in TIFF directory (not in the contig, subtract TIFFContig.firstTileIndexInTIFFDir to get the index in the contig)
-    public void setRecoloredTileBytesForTileId(String tileId, byte[] vals) {
-        String[] tileIdSplit = tileId.split("\\.");
-        int tiffDirIndex = Integer.valueOf(tileIdSplit[0]);
-        int tileContigIndex = Integer.valueOf(tileIdSplit[1]);
-        int tileIndex = Integer.valueOf(tileIdSplit[2]);
-        TIFFTileContig tileContig = tiffDirList.get(tiffDirIndex).tileContigList.get(tileContigIndex);
-        tileContig.recoloredTileBytesMap.put(tileIndex - tileContig.firstTileIndexInTIFFDir, vals);
-    }
-
-    public TIFFDir getTIFFDirForTileId(String tileId) {
-        String[] tileIdSplit = tileId.split("\\.");
-        int tiffDirIndex = Integer.valueOf(tileIdSplit[0]);
-        return tiffDirList.get(tiffDirIndex);
-    }
-
-    public TIFFTileContig getTileContigForTileId(String tileId) {
-        String[] tileIdSplit = tileId.split("\\.");
-        int tiffDirIndex = Integer.valueOf(tileIdSplit[0]);
-        int tileContigIndex = Integer.valueOf(tileIdSplit[1]);
-        return tiffDirList.get(tiffDirIndex).tileContigList.get(tileContigIndex);
-    }
-
-    public int getTileIndexInContigForTileId(String tileId) {
-        String[] tileIdSplit = tileId.split("\\.");
-        int tiffDirIndex = Integer.valueOf(tileIdSplit[0]);
-        int tileContigIndex = Integer.valueOf(tileIdSplit[1]);
-        int tileIndex = Integer.valueOf(tileIdSplit[2]);
-        TIFFTileContig tileContig = tiffDirList.get(tiffDirIndex).tileContigList.get(tileContigIndex);
-        return tileIndex - tileContig.firstTileIndexInTIFFDir;
-    }
-
-    public int getTileIndexForTileId(String tileId) {
-        String[] tileIdSplit = tileId.split("\\.");
-        int tileIndex = Integer.valueOf(tileIdSplit[2]);
-        return tileIndex;
-    }
     
+    static public class ResizeSegment {
+        public long start = -1;
+        public long length = -1; // negative = compress / positive = expand
+        public long end = -1;
+        public ResizeSegment(long start, long length) {
+            this.start = start;
+            this.length = length;
+        }
+        public void setEnd() {
+            if(length < 0) {
+                end = start + Math.abs(length);
+            }
+            else {
+                end = start;
+            }
+        }
+    }
+
 }

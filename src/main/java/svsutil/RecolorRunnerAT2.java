@@ -40,7 +40,6 @@ import java.util.List;
 import java.util.Queue;
 import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.logging.Logger;
-import javax.imageio.IIOException;
 import javax.imageio.IIOImage;
 import javax.imageio.ImageIO;
 import javax.imageio.ImageReader;
@@ -87,6 +86,7 @@ public class RecolorRunnerAT2 extends RecolorRunner {
 
     @Override
     public void run() {
+
         try {
             
             int tileNo = -1;
@@ -94,7 +94,7 @@ public class RecolorRunnerAT2 extends RecolorRunner {
 
                 // skip the label, macro, etc.
                 TIFFDir tiffDir = svsFile.tiffDirList.get(x);
-                if(tiffDir.tagJPEGTablesOffsetInSvs == -1) {
+                if(tiffDir.tagTileLengthsOffsetInSVS == null) {
                     continue;
                 }
                 
@@ -149,15 +149,10 @@ public class RecolorRunnerAT2 extends RecolorRunner {
                                 try {
                                     image = reader.read(imageIndex);
                                 }
-                                catch(IndexOutOfBoundsException e) {
-                                    break; // this will happen when the pipe closes
-                                }
-                                // this one is probably a bad idea...
-                                catch(IIOException e) {
-                                    if("No image data present to read".equals(e.getMessage())) {
-                                        break; // this will happen when the pipe closes if the thread never gets a tile to convert
-                                    }
-                                    throw e;
+                                catch(IndexOutOfBoundsException e) {  // this will happen when the pipe closes
+                                    reader.dispose();
+                                    writer.dispose();
+                                    break;
                                 }
 
                                 // THE JPEG TABLES IN THE SVS MUST BE THE FIRST
@@ -197,7 +192,7 @@ public class RecolorRunnerAT2 extends RecolorRunner {
                                 }
 
                                 String tileId = tileIdQueue.remove();
-
+                                
                                 final int[] imagePixels = new int[tileWidth * tileHeight];
                                 image.getRGB(0, 0, tileWidth, tileHeight, imagePixels, 0, tileWidth);
                                 if(!noRecolor) {
@@ -206,11 +201,7 @@ public class RecolorRunnerAT2 extends RecolorRunner {
                                 image.setRGB(0, 0, tileWidth, tileHeight, imagePixels, 0, tileWidth);
 
                                 if(annotate) {
-                                    TIFFDir tiffDir = svsFile.getTIFFDirForTileId(tileId);
-                                    TIFFTileContig tileContig = svsFile.getTileContigForTileId(tileId);
-                                    int tileIndex = svsFile.getTileIndexForTileId(tileId);
-                                    int tileX = (tileIndex) % (int)Math.ceil(1f * tiffDir.width / tiffDir.tileWidth);
-                                    int tileY = (tileIndex) / (int)Math.ceil(1f * tiffDir.width / tiffDir.tileHeight);
+                                    TIFFDir tiffDir = svsFile.tiffDirList.get(Integer.valueOf(tileId.split("\\.")[0]));
                                     Graphics2D graphics = image.createGraphics();
                                     graphics.setColor(Color.BLACK);
                                     graphics.setStroke(new BasicStroke(5f));
@@ -221,8 +212,6 @@ public class RecolorRunnerAT2 extends RecolorRunner {
                                     graphics.setFont(new Font("TimesRoman", Font.BOLD, 30));
                                     FontMetrics metrics = graphics.getFontMetrics();
                                     graphics.drawString(tileId, 20, 1 * (metrics.getHeight() + 20));
-                                    graphics.drawString(String.format("%d x %d", tileX, tileY), 20, 2 * (metrics.getHeight() + 20));                            
-                                    graphics.drawString(String.format("%4.2f mpp", tiffDir.mpp), 20, 3 * (metrics.getHeight() + 20));                            
                                 }
 
                                 IIOMetadata imageMetadata = reader.getImageMetadata(imageIndex);
@@ -236,7 +225,7 @@ public class RecolorRunnerAT2 extends RecolorRunner {
                                 byte[] imageOutputBytesNoApp14 = new byte[imageOutputBytes.length - 16];
                                 System.arraycopy(imageOutputBytes, 0, imageOutputBytesNoApp14, 0, 2);
                                 System.arraycopy(imageOutputBytes, 18, imageOutputBytesNoApp14, 2, imageOutputBytesNoApp14.length - 2);
-                                svsFile.setRecoloredTileBytesForTileId(tileId, imageOutputBytesNoApp14);
+                                svsFile.recoloredTileBytesMap.put(tileId, imageOutputStreamByteStream.toByteArray());
 
                                 imageIndex++;
 
@@ -251,29 +240,31 @@ public class RecolorRunnerAT2 extends RecolorRunner {
                     }    
 
                 });
-                jpegStreamThread.start();
                 
-                // the JPEG tables in the TIDD directories are different
+                // the JPEG tables in the TIFF directories are different
                 outputStream.write(svsFile.getBytes(tiffDir.tagJPEGTablesOffsetInSvs, tiffDir.tagJPEGTablesOffsetInSvs + tiffDir.tagJPEGTablesLength));
 
-                for(int y = 0; y < tiffDir.tileContigList.size(); y++) {
-                    TIFFTileContig tileContig = tiffDir.tileContigList.get(y);
-                    for(int z = 0; z < tileContig.tagTileOffsetsInSvs.length; z++) {
-                        tileNo++;
-                        synchronized(svsFile.nextTileNo) {
-                            if(tileNo < svsFile.nextTileNo) {
-                                continue;
-                            }
-                            for(int a = 0; a < skip; a++) {
-                                tileContig.recoloredTileBytesMap.put(z + a + 1, svsFile.getBytes(tileContig.tagTileOffsetsInSvs[z + a + 1], tileContig.tagTileOffsetsInSvs[z + a + 1] + tileContig.tagTileLengths[z + a + 1]));
-                            }
-                            svsFile.nextTileNo += skip + 1;
+                for(int y = 0; y < tiffDir.tilesInSVSOrder.length; y++) {
+                    tileNo++;
+                    synchronized(svsFile.nextTileNo) {
+                        if(tileNo < svsFile.nextTileNo) {
+                            continue;
                         }
-                        tileIdQueue.add(tileContig.id + "." + String.valueOf(tileContig.firstTileIndexInTIFFDir + z));
-                        outputStream.write(svsFile.getBytes(tileContig.tagTileOffsetsInSvs[z], tileContig.tagTileOffsetsInSvs[z] + 2));
-                        outputStream.write(JPEG_APP14_SEGMENT);
-                        outputStream.write(svsFile.getBytes(tileContig.tagTileOffsetsInSvs[z] + 2, tileContig.tagTileOffsetsInSvs[z] + tileContig.tagTileLengths[z]));
+                        int actuallySkipped = 0;
+                        for(int a = y + 1; a < (int)Math.min(y + 1 + skip, tiffDir.tilesInSVSOrder.length); a++) {
+                            svsFile.recoloredTileBytesMap.put(tiffDir.tilesInSVSOrder[a].id, svsFile.getBytes(tiffDir.tilesInSVSOrder[a].offsetInSVS, tiffDir.tilesInSVSOrder[a].offsetInSVS + tiffDir.tilesInSVSOrder[a].length));
+                            actuallySkipped++;
+                        }
+                        svsFile.nextTileNo += actuallySkipped + 1;
                     }
+                    if(!jpegStreamThread.isAlive()) {
+                        jpegStreamThread.start();
+                    }
+                    Tile tile = tiffDir.tilesInSVSOrder[y];
+                    tileIdQueue.add(tile.id);
+                    outputStream.write(svsFile.getBytes(tile.offsetInSVS, tile.offsetInSVS + 2));
+                    outputStream.write(JPEG_APP14_SEGMENT);
+                    outputStream.write(svsFile.getBytes(tile.offsetInSVS + 2, tile.offsetInSVS + tile.length));
                 }
 
                 outputStream.flush();

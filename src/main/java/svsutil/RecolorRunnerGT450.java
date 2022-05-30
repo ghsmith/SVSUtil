@@ -59,7 +59,7 @@ import javax.imageio.stream.MemoryCacheImageOutputStream;
  * much harder the AT2 SVS files are to work with than the GT450 SVS files.
  * In particular, you don't have to worry about separate JPEG tables or
  * "natitive RGB" (application segment 14 "Adobe") JPEG encoding with the
- * GT450. I am liking the GT450 more and more than the AT2 every day.
+ * GT450. I am liking the GT450 more and more than the AT2 every day!
  * 
  * @author geoffrey.smith@emory.edu
  */
@@ -73,6 +73,7 @@ public class RecolorRunnerGT450 extends RecolorRunner {
 
     @Override
     public void run() {
+        
         try {
             
             final PipedOutputStream outputStream = new PipedOutputStream();
@@ -120,8 +121,10 @@ public class RecolorRunnerGT450 extends RecolorRunner {
                             try {
                                 image = reader.read(imageIndex);
                             }
-                            catch(IndexOutOfBoundsException e) {
-                                break; // this will happen when the pipe closes
+                            catch(IndexOutOfBoundsException e) {  // this will happen when the pipe closes
+                                reader.dispose();
+                                writer.dispose();
+                                break;
                             }
                             
                             String tileId = tileIdQueue.remove();
@@ -134,23 +137,17 @@ public class RecolorRunnerGT450 extends RecolorRunner {
                             image.setRGB(0, 0, tileWidth, tileHeight, imagePixels, 0, tileWidth);
                             
                             if(annotate) {
-                                TIFFDir tiffDir = svsFile.getTIFFDirForTileId(tileId);
-                                TIFFTileContig tileContig = svsFile.getTileContigForTileId(tileId);
-                                int tileIndex = svsFile.getTileIndexForTileId(tileId);
-                                int tileX = (tileIndex) % (int)Math.ceil(1f * tiffDir.width / tiffDir.tileWidth);
-                                int tileY = (tileIndex) / (int)Math.ceil(1f * tiffDir.width / tiffDir.tileHeight);
+                                TIFFDir tiffDir = svsFile.tiffDirList.get(Integer.valueOf(tileId.split("\\.")[0]));
                                 Graphics2D graphics = image.createGraphics();
                                 graphics.setColor(Color.BLACK);
                                 graphics.setStroke(new BasicStroke(5f));
                                 graphics.drawLine(0, 0, 10, 10);
                                 graphics.drawLine(0, tiffDir.tileHeight - 1, 10, tiffDir.tileHeight - 11);
-                                graphics.drawLine(tiffDir.tileWidth - 1, tiffDir.tileHeight - 1, tiffDir.tileWidth - 1, tiffDir.tileHeight - 11);
+                                graphics.drawLine(tiffDir.tileWidth - 1, tiffDir.tileHeight - 1, tiffDir.tileWidth - 11, tiffDir.tileHeight - 11);
                                 graphics.drawLine(tiffDir.tileWidth - 1, 0, tiffDir.tileWidth - 11, 10);
                                 graphics.setFont(new Font("TimesRoman", Font.BOLD, 30));
                                 FontMetrics metrics = graphics.getFontMetrics();
                                 graphics.drawString(tileId, 20, 1 * (metrics.getHeight() + 20));
-                                graphics.drawString(String.format("%d x %d", tileX, tileY), 20, 2 * (metrics.getHeight() + 20));                            
-                                graphics.drawString(String.format("%4.2f mpp", tiffDir.mpp), 20, 3 * (metrics.getHeight() + 20));                            
                             }
                             
                             IIOMetadata imageMetadata = reader.getImageMetadata(imageIndex);
@@ -159,7 +156,7 @@ public class RecolorRunnerGT450 extends RecolorRunner {
                             imageOutputStreamByteStream.reset();
                             writer.write(null, iioImage, iwp);
                             imageOutputStream.flush();
-                            svsFile.setRecoloredTileBytesForTileId(tileId, imageOutputStreamByteStream.toByteArray());
+                            svsFile.recoloredTileBytesMap.put(tileId, imageOutputStreamByteStream.toByteArray());
 
                             imageIndex++;
 
@@ -174,27 +171,33 @@ public class RecolorRunnerGT450 extends RecolorRunner {
                 }    
                     
             });
-            jpegStreamThread.start();
             
             int tileNo = -1;
             for(int x = startWithTiffDirIndex; x < svsFile.tiffDirList.size(); x++) {
+                // skip the label, macro, etc.
                 TIFFDir tiffDir = svsFile.tiffDirList.get(x);
-                for(int y = 0; y < tiffDir.tileContigList.size(); y++) {
-                    TIFFTileContig tileContig = tiffDir.tileContigList.get(y);
-                    for(int z = 0; z < tileContig.tagTileOffsetsInSvs.length; z++) {
-                        tileNo++;
-                        synchronized(svsFile.nextTileNo) {
-                            if(tileNo < svsFile.nextTileNo) {
-                                continue;
-                            }
-                            for(int a = 0; a < skip; a++) {
-                                tileContig.recoloredTileBytesMap.put(z + a + 1, svsFile.getBytes(tileContig.tagTileOffsetsInSvs[z + a + 1], tileContig.tagTileOffsetsInSvs[z + a + 1] + tileContig.tagTileLengths[z + a + 1]));
-                            }
-                            svsFile.nextTileNo += skip + 1;
+                if(tiffDir.tagTileLengthsOffsetInSVS == null) {
+                    continue;
+                }
+                for(int y = 0; y < tiffDir.tilesInSVSOrder.length; y++) {
+                    tileNo++;
+                    synchronized(svsFile.nextTileNo) {
+                        if(tileNo < svsFile.nextTileNo) {
+                            continue;
                         }
-                        tileIdQueue.add(tileContig.id + "." + String.valueOf(tileContig.firstTileIndexInTIFFDir + z));
-                        outputStream.write(svsFile.getBytes(tileContig.tagTileOffsetsInSvs[z], tileContig.tagTileOffsetsInSvs[z] + tileContig.tagTileLengths[z]));
+                        int actuallySkipped = 0;
+                        for(int a = y + 1; a < (int)Math.min(y + 1 + skip, tiffDir.tilesInSVSOrder.length); a++) {
+                            svsFile.recoloredTileBytesMap.put(tiffDir.tilesInSVSOrder[a].id, svsFile.getBytes(tiffDir.tilesInSVSOrder[a].offsetInSVS, tiffDir.tilesInSVSOrder[a].offsetInSVS + tiffDir.tilesInSVSOrder[a].length));
+                            actuallySkipped++;
+                        }
+                        svsFile.nextTileNo += actuallySkipped + 1;
                     }
+                    if(!jpegStreamThread.isAlive()) {
+                        jpegStreamThread.start();
+                    }
+                    Tile tile = tiffDir.tilesInSVSOrder[y];
+                    tileIdQueue.add(tile.id);
+                    outputStream.write(svsFile.getBytes(tile.offsetInSVS, tile.offsetInSVS + tile.length));
                 }
             }
             outputStream.flush();
