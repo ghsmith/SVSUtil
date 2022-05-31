@@ -8,6 +8,7 @@ This project uses the J2SE API and does not rely on any native libraries (e.g., 
 
 ```
 git clone https://github.com/ghsmith/SVSUtil
+cd SVSUtil
 mvn package
 ```
 
@@ -126,7 +127,7 @@ The ICC profile in #0 primarily consists of a 25 x 25 x 25 color lookup table (C
 
 The JPEG tiles in the AT2 SVS files are unusual and much more difficult to work with than those in the GT450 SVS files:
 
-- In the normal world, JPEG images are converted to YCbCr colorspace before JPEG encoding. The AT2 does not perform this colorspace conversion prior to JPEG encoding, so the JPEG tile bytes in the AT2 SVS files represent JPEG-encoded RGB colorspace. I have seen this called a "native RGB JPEG" by some sources. Care must be taken to ensure that the client rendering a tile knows that it is RGB that is encoded in the JPEG, or the client will assume it needs to perform a YCbCr-to-RGB colorspace conversion after JPEG decoding and that unnecessary transform will mangle the colors. I think the easiest way to make sure these tiles are rendered properly is to inclue an "Adobe" application segment (APP14) that specifies no-color-transform (i.e., "0xff 0xfe 0x00 0x0e A d o b e 0x00 0x00 0x00 0x00 0x00 0x00 0x00"). Additionaly, do not include a JFIF application segment (APP0), or that will override the APP14 segment.
+- In the normal world, JPEG images are converted to YCbCr colorspace before JPEG encoding. The AT2 does not perform this colorspace conversion prior to JPEG encoding, so the JPEG tile bytes in the AT2 SVS files represent JPEG-encoded RGB colorspace. I have seen this called a "native RGB JPEG" by some sources. Care must be taken to ensure that the client rendering a tile knows that it is RGB that is encoded in the JPEG, or the client will assume it needs to perform a YCbCr-to-RGB colorspace conversion after JPEG decoding and that unnecessary transform will mangle the colors. I think the easiest way to make sure these tiles are rendered properly is to inclue an "Adobe" application segment (APP14) that specifies no-color-transform (i.e., "0xff 0xfe 0x00 0x0e A d o b e 0x00 0x00 0x00 0x00 0x00 0x00 0x00"). Additionally, do not include a JFIF application segment (APP0), or that will override the APP14 segment.
 
 - The raw tile bytes are not renderable JPEG images, so the "dd" trick showed above with the GT450 doesn't work with AT2 tiles. I have seen this called "abbreviated JPEG" by some sources. Specifically, the tiles do not include JPEG segments for the quantization and Huffman tables (i.e., the JPEG tables required to decode the image) and the JPEG segmens do not include an application segment (i.e., as discussed in the previous paragraph). The JPEG tables are included in the TIFF directory tags. Each TIFF directory has its own JPEG tables and it is important to render tiles using the JPEG tables for the correct TIFF directory. You must provide the application segment.
 
