@@ -37,13 +37,13 @@ usage: java -jar svsutil.jar colorutil [options] svs_file_name
  -t,--threads <arg>   number of parallel threads, integer (default = 4)
 ```
 
-The following SVS was created from a GT450 scan using this command line:
+The following SVS was created from a GT450 scan using this command line and there is a striking difference in color gamut:
 
 `java -jar svsutil.jar colorutil -q80 -s1 -t24 test_slide_small.svs`
   
 ![example of a recolored SVS in ImageScope](recolor_example.png)
 
-The AT2 acquires images with a color gamut that is almost conventional, so the color differences between the raw and color-corrected tiles are more subtle with the AT2 than they are with the GT450. The tiles with annotations have been color-corrected and appear slightly pinker than the tiles without annotations. The following SVS was created from an AT2 scan using this command line:
+The AT2 acquires images with a color gamut that is almost conventional, so the color differences between the raw and color-corrected tiles are more subtle with the AT2 than they are with the GT450. The following SVS was created from an AT2 scan using this command line, the tiles with annotations have been color-corrected and appear slightly pinker than the tiles without annotations:
 
  `java -jar svsutil.jar colorutil -t16 -r -a -s1 test_at2.svs`
 
