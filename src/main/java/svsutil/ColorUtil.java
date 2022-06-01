@@ -176,7 +176,7 @@ public class ColorUtil {
                 // negative length = compress file (remove these bytes)
                 // positive length = expand file
                 if(resizeFile) {
-                    SVSFile.ResizeSegment resizeSegment = new SVSFile.ResizeSegment(-1, bytesRequired - bytesAvailable);
+                    SVSFile.ResizeSegment resizeSegment = new SVSFile.ResizeSegment(0, bytesRequired - bytesAvailable);
                     resizeSegmentList.add(resizeSegment);
                     if(bytesRequired < bytesAvailable) {
                         resizeSegment.start = tiffDir.tileDataContigOffsetInSVS + bytesRequired;

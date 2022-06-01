@@ -71,9 +71,11 @@ public class TIFFDir {
     public int tagJPEGTablesLength = -1;
     
     // these are for the non-tiled images (thumbnail, label, macro)
-    public long imageDataOffsetInSvs = -1;
-    public long imageDataLength = -1;
-    public int imageDataLengthOffsetInHeader = -1;
+    public long[] stripOffsetsInSVS = null;
+    public long[] stripOffsetsInSVSOffsetInSVS = null;
+    public int[] stripLengths = null;
+    public long[] stripLengthsOffsetInSVS = null;
+    public int rowsPerStrip = -1;
 
     // this is needed to clobber the ICC profile in the SVS to prevent double-
     // color-correction (i.e., by this utility and then by a client rendering
@@ -306,10 +308,12 @@ public class TIFFDir {
             tagTileLengthsOffsetInSVS = tiffTagMap.get(325) != null ? ((TIFFTagLongArrayReference)tiffTagMap.get(325)).osElementValuesDereferenced : null;
             // at the moment, for the non-tiled TIFF directories like the label, etc., I am only
             // interested in the non-striped ones that the GT450 does
-            if(tiffTagMap.get(273) != null && tiffTagMap.get(273).length == 1) {
-                imageDataOffsetInSvs = tiffTagMap.get(273) != null ? (((TIFFTagLong)tiffTagMap.get(273)).elementValues[0]) : -1;
-                imageDataLength = tiffTagMap.get(279) != null ? (((TIFFTagLong)tiffTagMap.get(279)).elementValues[0]) : -1;
-                imageDataLengthOffsetInHeader = tiffTagMap.get(279) != null ? (int)(((TIFFTagLong)tiffTagMap.get(279)).osElementValues[0] - offsetInSvs) : -1;
+            if(tiffTagMap.get(273) != null) {
+                stripOffsetsInSVS = tiffTagMap.get(273) instanceof TIFFTagLong ? ((TIFFTagLong)tiffTagMap.get(273)).elementValues : ((TIFFTagLongArrayReference)tiffTagMap.get(273)).elementValuesDereferenced;
+                stripOffsetsInSVSOffsetInSVS = tiffTagMap.get(273) instanceof TIFFTagLong ? ((TIFFTagLong)tiffTagMap.get(273)).osElementValues : ((TIFFTagLongArrayReference)tiffTagMap.get(273)).osElementValuesDereferenced;
+                stripLengths = tiffTagMap.get(279) instanceof TIFFTagLong ? Arrays.stream(((TIFFTagLong)tiffTagMap.get(279)).elementValues).mapToInt(i -> (int)i).toArray() : Arrays.stream(((TIFFTagLongArrayReference)tiffTagMap.get(279)).elementValuesDereferenced).mapToInt(i -> (int)i).toArray();
+                stripLengthsOffsetInSVS = tiffTagMap.get(279) instanceof TIFFTagLong ? ((TIFFTagLong)tiffTagMap.get(279)).osElementValues : ((TIFFTagLongArrayReference)tiffTagMap.get(279)).osElementValuesDereferenced;
+                rowsPerStrip = ((TIFFTagShort)tiffTagMap.get(278)).elementValues[0];
             }
             widthInTiles = (int)Math.ceil(1f * width / tileWidth);
             heightInTiles = (int)Math.ceil(1f * height / tileHeight);
