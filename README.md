@@ -10,6 +10,7 @@ This project uses the J2SE API and does not rely on any native libraries (e.g., 
 git clone https://github.com/ghsmith/SVSUtil
 cd SVSUtil
 mvn package
+mv target/uber-SVSUtil-1.0-SNAPSHOT.jar ./svsutil.jar
 ```
 
 ## [Re]color Utility
