@@ -65,6 +65,7 @@ public class LabelUtil {
         String replacement = null;
         boolean monochrome = false;
         boolean resizeFile = false;
+        boolean clobberMacro = false;
                 
         Options options = new Options();
 
@@ -88,6 +89,10 @@ public class LabelUtil {
         optionResize.setRequired(false);
         options.addOption(optionResize);
         
+        Option optionClobberMacro = new Option("c", "clobber", false, String.format("if specified, the program will clobber the macro image, which can include a portion of the label (default = do not clobber)"));
+        optionClobberMacro.setRequired(false);
+        options.addOption(optionClobberMacro);
+
         CommandLineParser parser = new DefaultParser();
         HelpFormatter formatter = new HelpFormatter();
         CommandLine cmd = null; //not a good practice, it serves it purpose 
@@ -99,6 +104,7 @@ public class LabelUtil {
             if(cmd.hasOption(optionReplace)) { replacement = cmd.getOptionValue(optionReplace); }
             if(cmd.hasOption(optionMonochrome)) { monochrome = true; }
             if(cmd.hasOption(optionResize)) { resizeFile = true; }
+            if(cmd.hasOption(optionClobberMacro)) { clobberMacro = true; }
             if(cmd.getArgs().length != 1) { throw new ParseException("no file specified"); }
             if(!cmd.getArgs()[0].toLowerCase().endsWith(".svs")) { throw new ParseException("file name must have a 'svs' extension"); }
         }
@@ -382,6 +388,19 @@ public class LabelUtil {
             
         }
 
+        // this is quickie and needs to be improved
+        if(clobberMacro) {
+            // the macro always seems to be last
+            TIFFDir tiffDir = svsFile.tiffDirList.get(svsFile.tiffDirList.size() - 1);
+        
+            for(int stripIndex = 0; stripIndex < tiffDir.stripOffsetsInSVS.length; stripIndex++) {
+                for(int offsetInStrip = 0; offsetInStrip < tiffDir.stripLengths[stripIndex]; offsetInStrip++) {
+                    svsFile.setByte(tiffDir.stripOffsetsInSVS[stripIndex] + offsetInStrip, (byte)0);
+                }
+            }
+            svsFile.write((new File(svsFile.svsFileName)).getName().replaceAll(".svs$", "_label_replaced.svs"));
+        }
+        
     }
     
 }
