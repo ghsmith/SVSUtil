@@ -288,7 +288,7 @@ public class SVSFile {
     
     public byte[] getBytes(long indexStart, long indexEnd) {
         if(indexStart / BUFFER_SIZE == (indexEnd - 1) / BUFFER_SIZE) {
-            return Arrays.copyOfRange(svsBytesList.get((int)(indexStart / BUFFER_SIZE)), (int)(indexStart % BUFFER_SIZE), (int)(indexEnd % BUFFER_SIZE));
+            return Arrays.copyOfRange(svsBytesList.get((int)(indexStart / BUFFER_SIZE)), (int)(indexStart % BUFFER_SIZE), (int)(indexStart % BUFFER_SIZE + (indexEnd - indexStart) + 1));
         }
         else {
             byte[] vals = new byte[(int)(indexEnd - indexStart)];
