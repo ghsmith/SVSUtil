@@ -37,6 +37,11 @@ usage: java -jar svsutil.jar colorutil [options] svs_file_name
                       interesting patterns of raw/recolored tiles, integer
                       (default = 0)
  -t,--threads <arg>   number of parallel threads, integer (default = 4)
+ -d,--dummytile       if specified, white tiles are replaced with a dummy
+                      tile that is currently a red 'x' (GT450 only)
+ -x,--norecode        if specified, no tiles are rewritten; this is
+                      intended to be used with the dummytile option to
+                      limit the scope of the changes to the SVS file
 ```
 
 The following SVS was created from a GT450 scan using this command line and there is a striking difference in color gamut:
@@ -60,6 +65,12 @@ The following SVS was created from a GT450 scan using this command line:
 `java -jar svsutil.jar colorutil -t24 -r -a test_slide_small.svs`
   
 ![example of a tile-annotated SVS in ImageScope](tile_annotate_example.png)
+
+The "dummytile" option can significantly reduce the size of SVS files with white-space (e.g., GI biopsies with white space between the levels). The following SVS file was created from a GT450 scan using this command line, the original SVS file was 364MB and the retiled SVS file was only 90MB (75% reduction):
+
+`java -jar svsutil.jar colorutil -t 10 -n -r -d -x ANONLBQG6I1GR_1_1.svs
+
+![example of the dummy tile option](dummy_tile.png)
 
 Although it is obvious, I have found that the best performance is achieved with more recent OpenJDK releases on CPUs with many cores. All SVS file operations are performed in-memory, so it may be necessary to increase your Java heap size for large files. For example, the following command line uses OpenJDK 17 with a 4GB heap and runs in 24 concurrent threads:
 
