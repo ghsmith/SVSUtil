@@ -41,8 +41,9 @@ public abstract class RecolorRunner implements Runnable {
     public boolean annotate = false;
     public int startWithTiffDirIndex = -1;
     public boolean dummyTile = false;
+    public boolean noRecode = false;
 
-    public RecolorRunner(SVSFile svsFile, int quality, int skip, boolean noRecolor, boolean annotate, int startWithTiffDirIndex, boolean dummyTile) {
+    public RecolorRunner(SVSFile svsFile, int quality, int skip, boolean noRecolor, boolean annotate, int startWithTiffDirIndex, boolean dummyTile, boolean noRecode) {
         this.svsFile = svsFile;
         this.quality = quality;
         this.skip = skip;
@@ -50,6 +51,7 @@ public abstract class RecolorRunner implements Runnable {
         this.annotate = annotate;
         this.startWithTiffDirIndex = startWithTiffDirIndex;
         this.dummyTile = dummyTile;
+        this.noRecode = noRecode;
     }
     
     @Override

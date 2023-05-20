@@ -72,6 +72,7 @@ public class ColorUtil {
         boolean annotate = false;
         int startWithTiffDirIndex = 0; // set to higher numbers for troubleshooting (runs faster)
         boolean dummyTile = false;
+        boolean noRecode = false;
 
         Options options = new Options();
 
@@ -102,9 +103,13 @@ public class ColorUtil {
         optionAnnotate.setRequired(false);
         options.addOption(optionAnnotate);
 
-        Option optionDummyTile = new Option("d", "dummytile", false, String.format("if specified, white tiles a replaced with a dummy tile (GT450 only)"));
+        Option optionDummyTile = new Option("d", "dummytile", false, String.format("if specified, white tiles are replaced with a dummy tile that is currently a red 'x' (GT450 only)"));
         optionDummyTile.setRequired(false);
         options.addOption(optionDummyTile);
+
+        Option optionNoRecode = new Option("x", "norecode", false, String.format("if specified, no tiles are rewritten; this is intended to be used with the dummytile option to limit the scope of the changes to the SVS file"));
+        optionNoRecode.setRequired(false);
+        options.addOption(optionNoRecode);
         
         CommandLineParser parser = new DefaultParser();
         HelpFormatter formatter = new HelpFormatter();
@@ -119,6 +124,7 @@ public class ColorUtil {
             if(cmd.hasOption(optionResize)) { resizeFile = true; }
             if(cmd.hasOption(optionAnnotate)) { annotate = true; }
             if(cmd.hasOption(optionDummyTile)) { dummyTile = true; }
+            if(cmd.hasOption(optionNoRecode)) { noRecode = true; }
             if(cmd.getArgs().length != 1) { throw new ParseException("no file specified"); }
             if(!cmd.getArgs()[0].toLowerCase().endsWith(".svs")) { throw new ParseException("file name must have a 'svs' extension"); }
         }
@@ -158,10 +164,10 @@ public class ColorUtil {
         Thread[] recolorThreads = new Thread[threads];
         for(int x = 0; x < threads; x++) {
             if(svsFile.tiffDirList.get(0).description.startsWith("Aperio Leica Biosystems GT450 v1.0.1")) {
-                recolorThreads[x] = new Thread(new RecolorRunnerGT450(svsFile, quality, skip, noRecolor, annotate, startWithTiffDirIndex, dummyTile));
+                recolorThreads[x] = new Thread(new RecolorRunnerGT450(svsFile, quality, skip, noRecolor, annotate, startWithTiffDirIndex, dummyTile, noRecode));
             }
             else if(svsFile.tiffDirList.get(0).description.startsWith("Aperio Image Library v12.0.15")) {
-                recolorThreads[x] = new Thread(new RecolorRunnerAT2(svsFile, quality, skip, noRecolor, annotate, startWithTiffDirIndex, dummyTile));
+                recolorThreads[x] = new Thread(new RecolorRunnerAT2(svsFile, quality, skip, noRecolor, annotate, startWithTiffDirIndex, dummyTile, noRecode));
             }
             else {
                 System.err.println("unknown scanner");

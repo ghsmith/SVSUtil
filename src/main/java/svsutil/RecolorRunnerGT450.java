@@ -67,8 +67,8 @@ public class RecolorRunnerGT450 extends RecolorRunner {
 
     static final Logger logger = Logger.getLogger(RecolorRunnerGT450.class.getName());    
 
-    public RecolorRunnerGT450(SVSFile svsFile, int quality, int skip, boolean noRecolor, boolean annotate, int startWithTiffDirIndex, boolean dummyTile) {
-        super(svsFile, quality, skip, noRecolor, annotate, startWithTiffDirIndex, dummyTile);
+    public RecolorRunnerGT450(SVSFile svsFile, int quality, int skip, boolean noRecolor, boolean annotate, int startWithTiffDirIndex, boolean dummyTile, boolean noRecode) {
+        super(svsFile, quality, skip, noRecolor, annotate, startWithTiffDirIndex, dummyTile, noRecode);
     }
 
     @Override
@@ -158,6 +158,11 @@ public class RecolorRunnerGT450 extends RecolorRunner {
                             imageOutputStream.flush();
                             svsFile.recoloredTileBytesMap.put(tileId, imageOutputStreamByteStream.toByteArray());
 
+                            if(!noRecode) {
+                                Tile tile = svsFile.tileMap.get(tileId);
+                                svsFile.recoloredTileBytesMap.put(tileId, svsFile.getBytes(tile.offsetInSVS, tile.offsetInSVS + tile.length));
+                            }
+                            
                             if(dummyTile) {
                                 if(
                                        Arrays.stream(imagePixels).map(x -> ((x & 0x00ff0000) >> 16)).min().getAsInt() > 200
