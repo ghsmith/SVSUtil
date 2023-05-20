@@ -68,7 +68,7 @@ The following SVS was created from a GT450 scan using this command line:
 
 The "dummytile" option can significantly reduce the size of SVS files with white-space (e.g., GI biopsies with white space between the levels). The following SVS file was created from a GT450 scan using this command line, the original SVS file was 364MB and the retiled SVS file was only 90MB (75% reduction):
 
-`java -jar svsutil.jar colorutil -t 10 -n -r -d -x ANONLBQG6I1GR_1_1.svs
+`java -jar svsutil.jar colorutil -t 10 -n -r -d -x ANONLBQG6I1GR_1_1.svs`
 
 ![example of the dummy tile option](dummy_tile.png)
 
