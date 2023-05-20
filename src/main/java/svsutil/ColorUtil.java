@@ -255,7 +255,7 @@ public class ColorUtil {
                 }
             }
             svsFile.write((new File(svsFile.svsFileName)).getName().replaceAll(".svs$", "_retiled.svs"));
-            logger.log(Level.INFO, String.format("recolored slide written to %s in current directory", (new File(svsFile.svsFileName)).getName().replaceAll(".svs$", "_recolored.svs")));
+            logger.log(Level.INFO, String.format("recolored slide written to %s in current directory", (new File(svsFile.svsFileName)).getName().replaceAll(".svs$", "_retiled.svs")));
         }
         
         System.exit(0);
