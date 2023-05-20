@@ -24,9 +24,11 @@
 
 package svsutil;
 
+import java.io.ByteArrayOutputStream;
 import java.io.File;
 import java.io.FileNotFoundException;
 import java.io.IOException;
+import java.io.InputStream;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
@@ -50,6 +52,17 @@ public class ColorUtil {
     static final Logger logger = Logger.getLogger(ColorUtil.class.getName());    
     
     public static void main(String[] args) throws FileNotFoundException, IOException, InterruptedException {
+
+        byte[] dummyTileBytes;
+        try(InputStream is = ColorUtil.class.getClassLoader().getResourceAsStream("dummy_tile.jpg")) {
+            ByteArrayOutputStream buffer = new ByteArrayOutputStream();
+            byte[] data = new byte[16384];
+            int nRead;
+            while ((nRead = is.read(data, 0, data.length)) != -1) {
+              buffer.write(data, 0, nRead);
+            }
+            dummyTileBytes = buffer.toByteArray();
+        }
         
         int threads = 4;
         int quality = 87;
@@ -58,6 +71,7 @@ public class ColorUtil {
         boolean resizeFile = false;
         boolean annotate = false;
         int startWithTiffDirIndex = 0; // set to higher numbers for troubleshooting (runs faster)
+        boolean dummyTile = false;
 
         Options options = new Options();
 
@@ -88,6 +102,10 @@ public class ColorUtil {
         optionAnnotate.setRequired(false);
         options.addOption(optionAnnotate);
 
+        Option optionDummyTile = new Option("d", "dummytile", false, String.format("if specified, white tiles a replaced with a dummy tile (GT450 only)"));
+        optionDummyTile.setRequired(false);
+        options.addOption(optionDummyTile);
+        
         CommandLineParser parser = new DefaultParser();
         HelpFormatter formatter = new HelpFormatter();
         CommandLine cmd = null; //not a good practice, it serves it purpose 
@@ -100,6 +118,7 @@ public class ColorUtil {
             if(cmd.hasOption(optionNoRecolor)) { noRecolor = true; }
             if(cmd.hasOption(optionResize)) { resizeFile = true; }
             if(cmd.hasOption(optionAnnotate)) { annotate = true; }
+            if(cmd.hasOption(optionDummyTile)) { dummyTile = true; }
             if(cmd.getArgs().length != 1) { throw new ParseException("no file specified"); }
             if(!cmd.getArgs()[0].toLowerCase().endsWith(".svs")) { throw new ParseException("file name must have a 'svs' extension"); }
         }
@@ -139,10 +158,10 @@ public class ColorUtil {
         Thread[] recolorThreads = new Thread[threads];
         for(int x = 0; x < threads; x++) {
             if(svsFile.tiffDirList.get(0).description.startsWith("Aperio Leica Biosystems GT450 v1.0.1")) {
-                recolorThreads[x] = new Thread(new RecolorRunnerGT450(svsFile, quality, skip, noRecolor, annotate, startWithTiffDirIndex));
+                recolorThreads[x] = new Thread(new RecolorRunnerGT450(svsFile, quality, skip, noRecolor, annotate, startWithTiffDirIndex, dummyTile));
             }
             else if(svsFile.tiffDirList.get(0).description.startsWith("Aperio Image Library v12.0.15")) {
-                recolorThreads[x] = new Thread(new RecolorRunnerAT2(svsFile, quality, skip, noRecolor, annotate, startWithTiffDirIndex));
+                recolorThreads[x] = new Thread(new RecolorRunnerAT2(svsFile, quality, skip, noRecolor, annotate, startWithTiffDirIndex, dummyTile));
             }
             else {
                 System.err.println("unknown scanner");
@@ -167,7 +186,7 @@ public class ColorUtil {
                     continue;
                 }
                 long bytesAvailable = Arrays.stream(tiffDir.tilesInSVSOrder).mapToLong(y -> y.length).sum();
-                long bytesRequired = Arrays.stream(tiffDir.tilesInSVSOrder).mapToLong(y -> svsFile.recoloredTileBytesMap.get(y.id).length).sum();;
+                long bytesRequired = (dummyTile ? dummyTileBytes.length : 0) + Arrays.stream(tiffDir.tilesInSVSOrder).mapToLong(y -> svsFile.recoloredTileBytesMap.get(y.id).length).sum();
                 if(bytesRequired > bytesAvailable && !resizeFile) {
                     logger.log(Level.SEVERE, String.format("error writing TIFF directory %d image tiles: %d bytes are available but %d bytes are required - use resize option or reduce JPEG compression quality", x, bytesAvailable, bytesRequired));
                     System.exit(1);
@@ -198,13 +217,22 @@ public class ColorUtil {
                 }
                 logger.log(Level.INFO, String.format("writing TIFF directory %d image tiles", x));
                 long tileOffsetInSVS = tiffDir.tilesInSVSOrder[0].offsetInSVS;
+                long dummyTileOffset = tiffDir.tilesInSVSOrder[0].offsetInSVS + Arrays.stream(tiffDir.tilesInSVSOrder).mapToLong(y -> svsFile.recoloredTileBytesMap.get(y.id).length).sum();
                 for(int y = 0; y < tiffDir.tilesInSVSOrder.length; y ++) {
                     byte[] recoloredTileBytes = svsFile.recoloredTileBytesMap.get(tiffDir.tilesInSVSOrder[y].id);
-                    svsFile.setBytesToLong(tiffDir.tagTileOffsetsInSvsOffsetInSVS[tiffDir.tilesInSVSOrder[y].indexInTiffDir], tileOffsetInSVS);
-                    svsFile.setBytesToLong(tiffDir.tagTileLengthsOffsetInSVS[tiffDir.tilesInSVSOrder[y].indexInTiffDir], recoloredTileBytes.length);
-                    svsFile.setBytes(tileOffsetInSVS, tileOffsetInSVS + recoloredTileBytes.length, recoloredTileBytes);
+                    if(dummyTile && recoloredTileBytes.length == 0) {
+                        svsFile.setBytesToLong(tiffDir.tagTileOffsetsInSvsOffsetInSVS[tiffDir.tilesInSVSOrder[y].indexInTiffDir], dummyTileOffset);
+                        svsFile.setBytesToLong(tiffDir.tagTileLengthsOffsetInSVS[tiffDir.tilesInSVSOrder[y].indexInTiffDir], dummyTileBytes.length);
+                    }
+                    else {
+                        svsFile.setBytesToLong(tiffDir.tagTileOffsetsInSvsOffsetInSVS[tiffDir.tilesInSVSOrder[y].indexInTiffDir], tileOffsetInSVS);
+                        svsFile.setBytesToLong(tiffDir.tagTileLengthsOffsetInSVS[tiffDir.tilesInSVSOrder[y].indexInTiffDir], recoloredTileBytes.length);
+                        svsFile.setBytes(tileOffsetInSVS, tileOffsetInSVS + recoloredTileBytes.length, recoloredTileBytes);
+                    }
                     tileOffsetInSVS += recoloredTileBytes.length;
                 }
+                // add dummy tile to end of this TIFF directory's tile contig
+                if(dummyTile) { svsFile.setBytes(tileOffsetInSVS, tileOffsetInSVS + dummyTileBytes.length, dummyTileBytes); }
             }
 // ^^ resize logic ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
             // ...and do segment compressions after writing the new image tiles
@@ -220,7 +248,7 @@ public class ColorUtil {
                     }
                 }
             }
-            svsFile.write((new File(svsFile.svsFileName)).getName().replaceAll(".svs$", "_recolored.svs"));
+            svsFile.write((new File(svsFile.svsFileName)).getName().replaceAll(".svs$", "_retiled.svs"));
             logger.log(Level.INFO, String.format("recolored slide written to %s in current directory", (new File(svsFile.svsFileName)).getName().replaceAll(".svs$", "_recolored.svs")));
         }
         

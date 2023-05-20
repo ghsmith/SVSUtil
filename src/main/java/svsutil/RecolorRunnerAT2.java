@@ -80,8 +80,8 @@ public class RecolorRunnerAT2 extends RecolorRunner {
         (byte)0xff, (byte)0xee, (byte)0x00, (byte)0x0e, (byte)0x41, (byte)0x64, (byte)0x6F, (byte)0x62, (byte)0x65, (byte)0x00, (byte)0x00, (byte)0x00, (byte)0x00, (byte)0x00, (byte)0x00, (byte)0x00
     };
 
-    public RecolorRunnerAT2(SVSFile svsFile, int quality, int skip, boolean noRecolor, boolean annotate, int startWithTiffDirIndex) {
-        super(svsFile, quality, skip, noRecolor, annotate, startWithTiffDirIndex);
+    public RecolorRunnerAT2(SVSFile svsFile, int quality, int skip, boolean noRecolor, boolean annotate, int startWithTiffDirIndex, boolean dummyTile) {
+        super(svsFile, quality, skip, noRecolor, annotate, startWithTiffDirIndex, dummyTile);
     }
 
     @Override

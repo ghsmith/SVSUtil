@@ -67,8 +67,8 @@ public class RecolorRunnerGT450 extends RecolorRunner {
 
     static final Logger logger = Logger.getLogger(RecolorRunnerGT450.class.getName());    
 
-    public RecolorRunnerGT450(SVSFile svsFile, int quality, int skip, boolean noRecolor, boolean annotate, int startWithTiffDirIndex) {
-        super(svsFile, quality, skip, noRecolor, annotate, startWithTiffDirIndex);
+    public RecolorRunnerGT450(SVSFile svsFile, int quality, int skip, boolean noRecolor, boolean annotate, int startWithTiffDirIndex, boolean dummyTile) {
+        super(svsFile, quality, skip, noRecolor, annotate, startWithTiffDirIndex, dummyTile);
     }
 
     @Override
@@ -149,7 +149,7 @@ public class RecolorRunnerGT450 extends RecolorRunner {
                                 FontMetrics metrics = graphics.getFontMetrics();
                                 graphics.drawString(tileId, 20, 1 * (metrics.getHeight() + 20));
                             }
-                            
+
                             IIOMetadata imageMetadata = reader.getImageMetadata(imageIndex);
                             IIOImage iioImage = new IIOImage(image, null, null);
                             iioImage.setMetadata(imageMetadata);
@@ -158,6 +158,16 @@ public class RecolorRunnerGT450 extends RecolorRunner {
                             imageOutputStream.flush();
                             svsFile.recoloredTileBytesMap.put(tileId, imageOutputStreamByteStream.toByteArray());
 
+                            if(dummyTile) {
+                                if(
+                                       Arrays.stream(imagePixels).map(x -> ((x & 0x00ff0000) >> 16)).min().getAsInt() > 200
+                                    && Arrays.stream(imagePixels).map(x -> ((x & 0x0000ff00) >>  8)).min().getAsInt() > 200
+                                    && Arrays.stream(imagePixels).map(x -> ((x & 0x000000ff) >>  0)).min().getAsInt() > 200
+                                ) {
+                                    svsFile.recoloredTileBytesMap.put(tileId, new byte[0]);
+                                }
+                            }
+                            
                             imageIndex++;
 
                         }
