@@ -49,6 +49,8 @@ import org.apache.commons.cli.HelpFormatter;
 import org.apache.commons.cli.Option;
 import org.apache.commons.cli.Options;
 import org.apache.commons.cli.ParseException;
+import org.krysalis.barcode4j.impl.datamatrix.DataMatrixBean;
+import org.krysalis.barcode4j.output.bitmap.BitmapCanvasProvider;
 
 /**
  * 
@@ -315,6 +317,13 @@ public class LabelUtil {
                         graphics.drawString(replacementLine, 5, yStart);
                         yStart += graphics.getFontMetrics().getHeight() + 10;
                     }
+                    //{
+                    //    DataMatrixBean dataMatrixBean = new DataMatrixBean();
+                    //    BitmapCanvasProvider canvas = new BitmapCanvasProvider(1000, BufferedImage.TYPE_BYTE_GRAY, true, 0);
+                    //    dataMatrixBean.generateBarcode(canvas, replacement);
+                    //    canvas.finish();
+                    //    graphics.drawImage(canvas.getBufferedImage(), 150, 180, null);
+                    //}
                     List<byte[]> stripByteList = new ArrayList<>();
                     for(int stripIndex = 0; stripIndex < tiffDir.stripOffsetsInSVS.length; stripIndex++) {
                         ByteArrayOutputStream bos = new ByteArrayOutputStream();
