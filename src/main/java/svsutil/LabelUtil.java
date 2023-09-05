@@ -68,6 +68,7 @@ public class LabelUtil {
         boolean monochrome = false;
         boolean resizeFile = false;
         boolean clobberMacro = false;
+        boolean barCode = false;
                 
         Options options = new Options();
 
@@ -95,6 +96,10 @@ public class LabelUtil {
         optionClobberMacro.setRequired(false);
         options.addOption(optionClobberMacro);
 
+        Option optionBarCode = new Option("b", "barcode", false, String.format("if specified, the program will add a Data Matrix bar code to the label that encodes the replacement string (default = no bar code)"));
+        optionBarCode.setRequired(false);
+        options.addOption(optionBarCode);
+
         CommandLineParser parser = new DefaultParser();
         HelpFormatter formatter = new HelpFormatter();
         CommandLine cmd = null; //not a good practice, it serves it purpose 
@@ -107,6 +112,7 @@ public class LabelUtil {
             if(cmd.hasOption(optionMonochrome)) { monochrome = true; }
             if(cmd.hasOption(optionResize)) { resizeFile = true; }
             if(cmd.hasOption(optionClobberMacro)) { clobberMacro = true; }
+            if(cmd.hasOption(optionBarCode)) { barCode = true; }
             if(cmd.getArgs().length != 1) { throw new ParseException("no file specified"); }
             if(!cmd.getArgs()[0].toLowerCase().endsWith(".svs")) { throw new ParseException("file name must have a 'svs' extension"); }
         }
@@ -317,13 +323,13 @@ public class LabelUtil {
                         graphics.drawString(replacementLine, 5, yStart);
                         yStart += graphics.getFontMetrics().getHeight() + 10;
                     }
-                    //{
-                    //    DataMatrixBean dataMatrixBean = new DataMatrixBean();
-                    //    BitmapCanvasProvider canvas = new BitmapCanvasProvider(1000, BufferedImage.TYPE_BYTE_GRAY, true, 0);
-                    //    dataMatrixBean.generateBarcode(canvas, replacement);
-                    //    canvas.finish();
-                    //    graphics.drawImage(canvas.getBufferedImage(), 150, 180, null);
-                    //}
+                    if(barCode) {
+                        DataMatrixBean dataMatrixBean = new DataMatrixBean();
+                        BitmapCanvasProvider canvas = new BitmapCanvasProvider(1000, BufferedImage.TYPE_BYTE_GRAY, true, 0);
+                        dataMatrixBean.generateBarcode(canvas, replacement);
+                        canvas.finish();
+                        graphics.drawImage(canvas.getBufferedImage(), 150, 180, null);
+                    }
                     List<byte[]> stripByteList = new ArrayList<>();
                     for(int stripIndex = 0; stripIndex < tiffDir.stripOffsetsInSVS.length; stripIndex++) {
                         ByteArrayOutputStream bos = new ByteArrayOutputStream();

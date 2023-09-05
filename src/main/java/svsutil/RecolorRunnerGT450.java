@@ -73,7 +73,7 @@ public class RecolorRunnerGT450 extends RecolorRunner {
 
     @Override
     public void run() {
-        
+
         try {
             
             final PipedOutputStream outputStream = new PipedOutputStream();
@@ -158,7 +158,7 @@ public class RecolorRunnerGT450 extends RecolorRunner {
                             imageOutputStream.flush();
                             svsFile.recoloredTileBytesMap.put(tileId, imageOutputStreamByteStream.toByteArray());
 
-                            if(!noRecode) {
+                            if(noRecode) {
                                 Tile tile = svsFile.tileMap.get(tileId);
                                 svsFile.recoloredTileBytesMap.put(tileId, svsFile.getBytes(tile.offsetInSVS, tile.offsetInSVS + tile.length));
                             }
