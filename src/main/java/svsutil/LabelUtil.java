@@ -317,7 +317,7 @@ public class LabelUtil {
                     }
                     Graphics2D graphics = imageReplaced.createGraphics();
                     graphics.setColor(Color.WHITE);
-                    graphics.setFont(new Font("TimesRoman", Font.PLAIN, 80));
+                    graphics.setFont(new Font("TimesRoman", Font.PLAIN, 70));
                     int yStart = graphics.getFontMetrics().getHeight() + 20;
                     for(String replacementLine : replacement.split("<br/>")) {
                         graphics.drawString(replacementLine, 5, yStart);
@@ -328,7 +328,11 @@ public class LabelUtil {
                         BitmapCanvasProvider canvas = new BitmapCanvasProvider(1000, BufferedImage.TYPE_BYTE_GRAY, true, 0);
                         dataMatrixBean.generateBarcode(canvas, replacement);
                         canvas.finish();
-                        graphics.drawImage(canvas.getBufferedImage(), 150, 180, null);
+                        graphics.drawImage(canvas.getBufferedImage(), 10, 180, null);
+                        graphics.setFont(new Font("TimesRoman", Font.PLAIN, 60));
+                        graphics.drawString("TESTING", 280, 230);
+                        graphics.drawString("TESTING", 280, 300);
+                        graphics.drawString("TESTING", 280, 370);
                     }
                     List<byte[]> stripByteList = new ArrayList<>();
                     for(int stripIndex = 0; stripIndex < tiffDir.stripOffsetsInSVS.length; stripIndex++) {
@@ -392,8 +396,10 @@ public class LabelUtil {
                     if(resizeFile) { svsFile.resize(resizeSegmentList.stream().filter(x -> x.length < 0).collect(Collectors.toList())); }
                     tiffDir = svsFile.tiffDirList.get(Integer.valueOf(tiffDir.id)); // SVS reparsed
 // ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-                    svsFile.write((new File(svsFile.svsFileName)).getName().replaceAll(".svs$", "_label_replaced.svs"));
-                    logger.log(Level.INFO, String.format("slide with replaced label written to %s in current directory", (new File(svsFile.svsFileName)).getName().replaceAll(".svs$", "_label_replaced.svs")));
+                    svsFile.write((new File(svsFile.svsFileName)).getName().replaceAll(".svs$", "_" + replacement + ".svs"));
+                    logger.log(Level.INFO, String.format("slide with replaced label written to %s in current directory", (new File(svsFile.svsFileName)).getName().replaceAll(".svs$", "_" + replacement + ".svs")));
+                    //svsFile.write((new File(svsFile.svsFileName)).getName().replaceAll(".svs$", "_label_replaced.svs"));
+                    //logger.log(Level.INFO, String.format("slide with replaced label written to %s in current directory", (new File(svsFile.svsFileName)).getName().replaceAll(".svs$", "_label_replaced.svs")));
 
                     break;
                     
