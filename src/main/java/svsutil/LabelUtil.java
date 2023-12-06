@@ -34,6 +34,7 @@ import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.File;
 import java.io.IOException;
+import java.nio.Buffer;
 import java.nio.ByteBuffer;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -329,10 +330,10 @@ public class LabelUtil {
                         dataMatrixBean.generateBarcode(canvas, replacement);
                         canvas.finish();
                         graphics.drawImage(canvas.getBufferedImage(), 10, 180, null);
-                        graphics.setFont(new Font("TimesRoman", Font.PLAIN, 60));
-                        graphics.drawString("TESTING", 280, 230);
-                        graphics.drawString("TESTING", 280, 300);
-                        graphics.drawString("TESTING", 280, 370);
+                        //graphics.setFont(new Font("TimesRoman", Font.PLAIN, 60));
+                        //graphics.drawString("TESTING", 280, 230);
+                        //graphics.drawString("TESTING", 280, 300);
+                        //graphics.drawString("TESTING", 280, 370);
                     }
                     List<byte[]> stripByteList = new ArrayList<>();
                     for(int stripIndex = 0; stripIndex < tiffDir.stripOffsetsInSVS.length; stripIndex++) {
@@ -359,7 +360,7 @@ public class LabelUtil {
                                 }
                             }
                         }
-                        bb.flip();
+                        ((Buffer)bb).flip();
                         Encoder lzwEncoder = new LZWEncoder(tiffDir.width * rowsActuallyWritten * 3);
                         lzwEncoder.encode(bos, bb);
                         stripByteList.add(bos.toByteArray());
@@ -382,6 +383,12 @@ public class LabelUtil {
                             resizeSegment.start = tiffDir.stripOffsetsInSVS[0] + bytesAvailable;
                         }
                     }
+                    else {
+                        logger.log(Level.INFO, String.format("clobbering %d label bytes", bytesAvailable - bytesRequired));
+                        for(int zz = 0; zz < bytesAvailable - bytesRequired; zz++) {
+                            svsFile.setByte(tiffDir.stripOffsetsInSVS[0] + bytesRequired + zz, (byte)0x00);
+                        }
+                    }
                     if(resizeFile) { svsFile.resize(resizeSegmentList.stream().filter(x -> x.length > 0).collect(Collectors.toList())); }
                     tiffDir = svsFile.tiffDirList.get(Integer.valueOf(tiffDir.id)); // SVS reparsed
 // ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -396,11 +403,13 @@ public class LabelUtil {
                     if(resizeFile) { svsFile.resize(resizeSegmentList.stream().filter(x -> x.length < 0).collect(Collectors.toList())); }
                     tiffDir = svsFile.tiffDirList.get(Integer.valueOf(tiffDir.id)); // SVS reparsed
 // ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-                    svsFile.write((new File(svsFile.svsFileName)).getName().replaceAll(".svs$", "_" + replacement + ".svs"));
-                    logger.log(Level.INFO, String.format("slide with replaced label written to %s in current directory", (new File(svsFile.svsFileName)).getName().replaceAll(".svs$", "_" + replacement + ".svs")));
-                    //svsFile.write((new File(svsFile.svsFileName)).getName().replaceAll(".svs$", "_label_replaced.svs"));
-                    //logger.log(Level.INFO, String.format("slide with replaced label written to %s in current directory", (new File(svsFile.svsFileName)).getName().replaceAll(".svs$", "_label_replaced.svs")));
-
+                    //svsFile.write((new File(svsFile.svsFileName)).getName().replaceAll(".svs$", "_" + replacement + ".svs"));
+                    //logger.log(Level.INFO, String.format("slide with replaced label written to %s in current directory", (new File(svsFile.svsFileName)).getName().replaceAll(".svs$", "_" + replacement + ".svs")));
+                    if(!clobberMacro) {
+                        svsFile.write((new File(svsFile.svsFileName)).getName().replaceAll(".svs$", "_relabeled.svs"));
+                        logger.log(Level.INFO, String.format("slide with replaced label written to %s in current directory", (new File(svsFile.svsFileName)).getName().replaceAll(".svs$", "_label_replaced.svs")));
+                    }
+                    
                     break;
                     
                 }
@@ -419,7 +428,7 @@ public class LabelUtil {
                     svsFile.setByte(tiffDir.stripOffsetsInSVS[stripIndex] + offsetInStrip, (byte)0);
                 }
             }
-            svsFile.write((new File(svsFile.svsFileName)).getName().replaceAll(".svs$", "_label_replaced.svs"));
+            svsFile.write((new File(svsFile.svsFileName)).getName().replaceAll(".svs$", "_relabeled.svs"));
         }
         
     }
