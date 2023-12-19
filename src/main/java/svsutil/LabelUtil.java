@@ -38,11 +38,22 @@ import java.nio.Buffer;
 import java.nio.ByteBuffer;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Iterator;
 import java.util.List;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 import java.util.stream.Collectors;
+import javax.imageio.IIOImage;
 import javax.imageio.ImageIO;
+import javax.imageio.ImageReader;
+import static javax.imageio.ImageWriteParam.MODE_COPY_FROM_METADATA;
+import javax.imageio.ImageWriter;
+import javax.imageio.metadata.IIOMetadata;
+import javax.imageio.plugins.jpeg.JPEGImageWriteParam;
+import javax.imageio.stream.ImageInputStream;
+import javax.imageio.stream.ImageOutputStream;
+import javax.imageio.stream.MemoryCacheImageInputStream;
+import javax.imageio.stream.MemoryCacheImageOutputStream;
 import org.apache.commons.cli.CommandLine;
 import org.apache.commons.cli.CommandLineParser;
 import org.apache.commons.cli.DefaultParser;
@@ -420,15 +431,78 @@ public class LabelUtil {
 
         // this is quickie and needs to be improved
         if(clobberMacro) {
+
             // the macro always seems to be last
             TIFFDir tiffDir = svsFile.tiffDirList.get(svsFile.tiffDirList.size() - 1);
-        
-            for(int stripIndex = 0; stripIndex < tiffDir.stripOffsetsInSVS.length; stripIndex++) {
-                for(int offsetInStrip = 0; offsetInStrip < tiffDir.stripLengths[stripIndex]; offsetInStrip++) {
-                    svsFile.setByte(tiffDir.stripOffsetsInSVS[stripIndex] + offsetInStrip, (byte)0);
+
+// I need to make this work for classic TIFF strips. Right now, this only works
+// for the GT450, which doesn't use classic TIFF strips. See "LabelUtil,"
+// which does work with classic TIFF strips to see how to do this.
+
+            byte[] imageBytes = svsFile.getBytes(tiffDir.stripOffsetsInSVS[0], tiffDir.stripOffsetsInSVS[0] + tiffDir.stripLengths[0]);
+            ByteArrayInputStream bais = new ByteArrayInputStream(imageBytes);
+            
+            // GT450 uses APP 14 Adobe (not JFIF)!
+            Iterator<ImageReader> readers = ImageIO.getImageReadersByFormatName("jpeg");
+            ImageReader reader = readers.next();
+            ImageInputStream imageInputStream = new MemoryCacheImageInputStream(bais);
+            reader.setInput(imageInputStream);
+            BufferedImage image = reader.read(0);
+            Graphics2D graphics = image.createGraphics();
+            graphics.drawImage(image, 0, 0, (int)(tiffDir.width * 1.00f), (int)(tiffDir.height * 1.00f), null); // scaling the original is possible
+            graphics.fillRect(0, 0, 250, tiffDir.height);
+            IIOMetadata imageMetadata = reader.getImageMetadata(0);
+            IIOImage iioImage = new IIOImage(image, null, null);
+            iioImage.setMetadata(imageMetadata);
+            Iterator iter = ImageIO.getImageWritersByFormatName("jpeg");            
+            ImageWriter writer = (ImageWriter)iter.next();
+            JPEGImageWriteParam iwp = (JPEGImageWriteParam)writer.getDefaultWriteParam();
+            iwp.setCompressionMode(MODE_COPY_FROM_METADATA);
+            ByteArrayOutputStream imageOutputStreamByteStream = new ByteArrayOutputStream(10000000);
+            ImageOutputStream imageOutputStream = new MemoryCacheImageOutputStream(imageOutputStreamByteStream);
+            writer.setOutput(imageOutputStream);
+            writer.write(null, iioImage, iwp);
+            imageOutputStream.flush();
+            byte[] imageBytesClobbered = imageOutputStreamByteStream.toByteArray();
+            
+            int bytesAvailable = imageBytes.length;
+            int bytesRequired = imageBytesClobbered.length;
+            if(bytesRequired > bytesAvailable && !resizeFile) {
+                logger.log(Level.SEVERE, "annotated macro exceeds bytes available in SVS for macro - use resize option");
+                System.exit(1);
+            }
+// ^^ resize logic ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+            List<SVSFile.ResizeSegment> resizeSegmentList = new ArrayList<>();
+            if(resizeFile) {
+                SVSFile.ResizeSegment resizeSegment = new SVSFile.ResizeSegment(0, bytesRequired - bytesAvailable);
+                resizeSegmentList.add(resizeSegment);
+                if(bytesRequired < bytesAvailable) {
+                    resizeSegment.start = tiffDir.stripOffsetsInSVS[0] + bytesRequired;
+                }
+                else if(bytesRequired > bytesAvailable) {
+                    resizeSegment.start = tiffDir.stripOffsetsInSVS[0] + bytesAvailable;
                 }
             }
+            else {
+                logger.log(Level.INFO, String.format("clobbering %d macro bytes", bytesAvailable - bytesRequired));
+                for(int zz = 0; zz < bytesAvailable - bytesRequired; zz++) {
+                    svsFile.setByte(tiffDir.stripOffsetsInSVS[0] + bytesRequired + zz, (byte)0x00);
+                }
+            }
+            if(resizeFile) { svsFile.resize(resizeSegmentList.stream().filter(x -> x.length > 0).collect(Collectors.toList())); }
+            tiffDir = svsFile.tiffDirList.get(Integer.valueOf(tiffDir.id)); // SVS reparsed
+// ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+            long offsetInSVS = tiffDir.stripOffsetsInSVS[0];
+            //svsFile.setBytesToLong(tiffDir.stripOffsetsInSVSOffsetInSVS[0], offsetInSVS);
+            svsFile.setBytesToLong(tiffDir.stripLengthsOffsetInSVS[0], imageBytesClobbered.length);
+            svsFile.setBytes(offsetInSVS, offsetInSVS + imageBytesClobbered.length, imageBytesClobbered);
+// ^^ resize logic ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+            if(resizeFile) { svsFile.resize(resizeSegmentList.stream().filter(x -> x.length < 0).collect(Collectors.toList())); }
+            tiffDir = svsFile.tiffDirList.get(Integer.valueOf(tiffDir.id)); // SVS reparsed
+// ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
             svsFile.write((new File(svsFile.svsFileName)).getName().replaceAll(".svs$", "_relabeled.svs"));
+            logger.log(Level.INFO, String.format("slide with replaced label written to %s in current directory", (new File(svsFile.svsFileName)).getName().replaceAll(".svs$", "_relabeled.svs")));
+            
         }
         
     }
