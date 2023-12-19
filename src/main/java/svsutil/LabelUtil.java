@@ -157,7 +157,7 @@ public class LabelUtil {
                         ByteBuffer bb = ByteBuffer.allocate(1024 * 1024 * 10);
                         Decoder lzwDecoder = LZWDecoder.create(false);
                         lzwDecoder.decode(bis, bb);
-                        bb.flip();
+                        ((Buffer)bb).flip();
                         for(int y = tiffDir.rowsPerStrip * stripIndex; y < (int)Math.min(tiffDir.rowsPerStrip * (stripIndex + 1), tiffDir.height); y++){
                             byte r = bb.get();
                             byte g = bb.get();

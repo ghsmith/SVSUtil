@@ -36,6 +36,7 @@ import com.twelvemonkeys.io.enc.Decoder;
 
 import java.io.IOException;
 import java.io.InputStream;
+import java.nio.Buffer;
 import java.nio.ByteBuffer;
 
 /**
@@ -334,7 +335,7 @@ abstract class LZWDecoder implements Decoder {
                     e = e.previous;
                 }
 
-                buffer.position(offset + length);
+                ((Buffer)buffer).position(offset + length);
             }
         }
 
