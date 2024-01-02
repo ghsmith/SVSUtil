@@ -228,22 +228,24 @@ public class LabelUtil {
                     // most labels are monochrome, anyway
                     BufferedImage imageAnnotated = null;
                     if(monochrome) {
-                        imageAnnotated = new BufferedImage(tiffDir.width, tiffDir.height, BufferedImage.TYPE_BYTE_BINARY);
+                        imageAnnotated = new BufferedImage(tiffDir.width, tiffDir.height + 50, BufferedImage.TYPE_BYTE_BINARY);
                     }
                     else {
-                        imageAnnotated = new BufferedImage(tiffDir.width, tiffDir.height, BufferedImage.TYPE_3BYTE_BGR);
+                        imageAnnotated = new BufferedImage(tiffDir.width, tiffDir.height + 50, BufferedImage.TYPE_3BYTE_BGR);
                     }
                     Graphics2D graphics = imageAnnotated.createGraphics();
-                    graphics.drawImage(image, 0, 0, (int)(tiffDir.width * 1.00f), (int)(tiffDir.height * 1.00f), null); // scaling the original is possible
-                    graphics.setColor(Color.WHITE);
-                    graphics.setFont(new Font("TimesRoman", Font.PLAIN, 50));
-                    graphics.drawString(annotation, 5, graphics.getFontMetrics().getHeight() + 20);
+                    graphics.drawImage(image, 0, 50, (int)(tiffDir.width * 1.00f), (int)(tiffDir.height * 1.00f), null); // scaling the original is possible
+                    graphics.setFont(new Font("TimesRoman", Font.PLAIN, 60));
+                    graphics.setColor(Color.GREEN);
+                    graphics.fillRect(0, 0, tiffDir.width, 65);
+                    graphics.setColor(Color.BLACK);
+                    graphics.drawString(annotation, 5, 50);
                     List<byte[]> stripByteList = new ArrayList<>();
                     for(int stripIndex = 0; stripIndex < tiffDir.stripOffsetsInSVS.length; stripIndex++) {
                         ByteArrayOutputStream bos = new ByteArrayOutputStream();
                         ByteBuffer bb = ByteBuffer.allocate(1024 * 1024 * 10);
                         int rowsActuallyWritten = 0;
-                        for(int y = tiffDir.rowsPerStrip * stripIndex; y < (int)Math.min(tiffDir.rowsPerStrip * (stripIndex + 1), tiffDir.height); y++){
+                        for(int y = (tiffDir.rowsPerStrip + 50) * stripIndex; y < (int)Math.min((tiffDir.rowsPerStrip + 50) * (stripIndex + 1), tiffDir.height + 50); y++){
                             rowsActuallyWritten++;
                             byte r = (byte)((imageAnnotated.getRGB(0, y) & 0x00ff0000) >> 16);
                             byte g = (byte)((imageAnnotated.getRGB(0, y) & 0x0000ff00) >>  8);
@@ -295,6 +297,9 @@ public class LabelUtil {
                         svsFile.setBytesToLong(tiffDir.stripLengthsOffsetInSVS[stripIndex], stripByteList.get(stripIndex).length);
                         svsFile.setBytes(offsetInSVS, offsetInSVS + stripByteList.get(stripIndex).length, stripByteList.get(stripIndex));
                         offsetInSVS += stripByteList.get(stripIndex).length;
+                        svsFile.setBytesToShort(tiffDir.heightOffsetInSvs, tiffDir.height + 50);
+                        svsFile.setBytesToShort(tiffDir.rowsPerStripOffsetInSvs, tiffDir.height + 50);
+                        svsFile.setBytes(tiffDir.descriptionOffsetInSvs, tiffDir.descriptionOffsetInSvs + tiffDir.description.length(), tiffDir.description.replace("490", "540").getBytes());
                     }
 // ^^ resize logic ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
                     if(resizeFile) { svsFile.resize(resizeSegmentList.stream().filter(x -> x.length < 0).collect(Collectors.toList())); }

@@ -94,6 +94,11 @@ public class TIFFDir {
     Tile[] tilesInTIFFOrder = null;
     Tile[] tilesInSVSOrder = null;
 
+    // we might make the label taller if we annotate it
+    public long descriptionOffsetInSvs = -1;
+    public long heightOffsetInSvs = -1;
+    public long rowsPerStripOffsetInSvs = -1;
+    
     public TIFFDir(String id, SVSFile svsFile, long offsetInSvs) {
 
         this.id = id;
@@ -287,9 +292,15 @@ public class TIFFDir {
             subfileType = (int)((TIFFTagLong)tiffTagMap.get(254)).elementValues[0];
             width = tiffTagMap.get(256) instanceof TIFFTagLong ? (int)((TIFFTagLong)tiffTagMap.get(256)).elementValues[0] : ((TIFFTagShort)tiffTagMap.get(256)).elementValues[0];
             height = tiffTagMap.get(257) instanceof TIFFTagLong ? (int)((TIFFTagLong)tiffTagMap.get(257)).elementValues[0] : ((TIFFTagShort)tiffTagMap.get(257)).elementValues[0];
+
+            heightOffsetInSvs = ((TIFFTagShort)tiffTagMap.get(257)).osElementValues[0];
+
             tileWidth = tiffTagMap.get(322) != null ? ((TIFFTagShort)tiffTagMap.get(322)).elementValues[0] : -1;
             tileHeight = tiffTagMap.get(323) != null ? ((TIFFTagShort)tiffTagMap.get(323)).elementValues[0] : -1;
             description = ((TIFFTagASCIIReference)tiffTagMap.get(270)).elementValueDereferenced;
+            
+            descriptionOffsetInSvs = ((TIFFTagASCIIReference)tiffTagMap.get(270)).osElementValueDereferenced;
+            
             {
                 Pattern p = Pattern.compile(".*\\|MPP = ([\\.0-9]*)\\|.*", Pattern.DOTALL); // DOTALL b/c the description is multi-line
                 Matcher m = p.matcher(description);
@@ -314,6 +325,9 @@ public class TIFFDir {
                 stripLengths = tiffTagMap.get(279) instanceof TIFFTagLong ? Arrays.stream(((TIFFTagLong)tiffTagMap.get(279)).elementValues).mapToInt(i -> (int)i).toArray() : Arrays.stream(((TIFFTagLongArrayReference)tiffTagMap.get(279)).elementValuesDereferenced).mapToInt(i -> (int)i).toArray();
                 stripLengthsOffsetInSVS = tiffTagMap.get(279) instanceof TIFFTagLong ? ((TIFFTagLong)tiffTagMap.get(279)).osElementValues : ((TIFFTagLongArrayReference)tiffTagMap.get(279)).osElementValuesDereferenced;
                 rowsPerStrip = ((TIFFTagShort)tiffTagMap.get(278)).elementValues[0];
+                
+                rowsPerStripOffsetInSvs = ((TIFFTagShort)tiffTagMap.get(278)).osElementValues[0];
+                
             }
             widthInTiles = (int)Math.ceil(1f * width / tileWidth);
             heightInTiles = (int)Math.ceil(1f * height / tileHeight);

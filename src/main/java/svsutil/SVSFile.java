@@ -359,6 +359,14 @@ public class SVSFile {
         }
     }
     
+    public void setBytesToShort(long index, int val) {
+        byte[] bytes = new byte[] {
+                (byte)(((val) & 0x00000000000000ffL) >>  0),
+                (byte)(((val) & 0x000000000000ff00L) >>  8)
+        };
+        setBytes(index, index + 2, bytes);
+    }
+
     static public class ResizeSegment {
         public long start = -1;
         public long length = -1; // negative = compress / positive = expand
