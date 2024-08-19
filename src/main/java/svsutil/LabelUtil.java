@@ -38,10 +38,13 @@ import java.nio.Buffer;
 import java.nio.ByteBuffer;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Date;
 import java.util.Iterator;
 import java.util.List;
 import java.util.logging.Level;
 import java.util.logging.Logger;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 import javax.imageio.IIOImage;
 import javax.imageio.ImageIO;
@@ -81,6 +84,7 @@ public class LabelUtil {
         boolean resizeFile = false;
         boolean clobberMacro = false;
         boolean barCode = false;
+        boolean metadata = false;
                 
         Options options = new Options();
 
@@ -112,6 +116,10 @@ public class LabelUtil {
         optionBarCode.setRequired(false);
         options.addOption(optionBarCode);
 
+        Option optionMetadata = new Option("z", "metadata", false, String.format("metadata in HTML format"));
+        optionMetadata.setRequired(false);
+        options.addOption(optionMetadata);
+        
         CommandLineParser parser = new DefaultParser();
         HelpFormatter formatter = new HelpFormatter();
         CommandLine cmd = null; //not a good practice, it serves it purpose 
@@ -125,6 +133,7 @@ public class LabelUtil {
             if(cmd.hasOption(optionResize)) { resizeFile = true; }
             if(cmd.hasOption(optionClobberMacro)) { clobberMacro = true; }
             if(cmd.hasOption(optionBarCode)) { barCode = true; }
+            if(cmd.hasOption(optionMetadata)) { metadata = true; }
             if(cmd.getArgs().length != 1) { throw new ParseException("no file specified"); }
             if(!cmd.getArgs()[0].toLowerCase().endsWith(".svs")) { throw new ParseException("file name must have a 'svs' extension"); }
         }
@@ -317,6 +326,19 @@ public class LabelUtil {
 
                 if(tiffDir.subfileType == 1) {
 
+                    // make it so I can just pass in an acc no
+                    Pattern p = Pattern.compile("^[0-9]+_[0-9]+_([A-Z]+[0-9][0-9]-[0-9]+)-([A-Z])([0-9]+)-([0-9]+)_[0-9]+\\.svs$");
+                    Matcher m = p.matcher(svsFile.svsFileName);
+                    if(!m.matches()) {
+                        throw new RuntimeException("file name format problem");
+                    }
+                    String xAccNo = m.group(1);
+                    String xPart = m.group(2);
+                    String xBlock = m.group(3);
+                    String xSlideNo = m.group(4);
+                    replacement = replacement + "-" + xPart + xBlock + "-" + xSlideNo;
+                    System.out.println(replacement);
+                    
                     // using monochrome for the label to keep the size small,
                     // otherwise it might not fit in the available space and
                     // most labels are monochrome, anyway
@@ -330,20 +352,21 @@ public class LabelUtil {
                     Graphics2D graphics = imageReplaced.createGraphics();
                     graphics.setColor(Color.WHITE);
                     graphics.setFont(new Font("TimesRoman", Font.PLAIN, 70));
-                    int yStart = graphics.getFontMetrics().getHeight() + 20;
+                    int yStart = graphics.getFontMetrics().getHeight();
                     for(String replacementLine : replacement.split("<br/>")) {
-                        graphics.drawString(replacementLine, 5, yStart);
+                        graphics.drawString(replacementLine, 10, yStart);
                         yStart += graphics.getFontMetrics().getHeight() + 10;
                     }
                     if(barCode) {
                         DataMatrixBean dataMatrixBean = new DataMatrixBean();
-                        BitmapCanvasProvider canvas = new BitmapCanvasProvider(1000, BufferedImage.TYPE_BYTE_GRAY, true, 0);
+                        BitmapCanvasProvider canvas = new BitmapCanvasProvider(600, BufferedImage.TYPE_BYTE_GRAY, true, 0);
                         dataMatrixBean.generateBarcode(canvas, replacement);
                         canvas.finish();
-                        graphics.drawImage(canvas.getBufferedImage(), 10, 180, null);
-                        //graphics.setFont(new Font("TimesRoman", Font.PLAIN, 60));
-                        //graphics.drawString("TESTING", 280, 230);
-                        //graphics.drawString("TESTING", 280, 300);
+                        graphics.drawImage(canvas.getBufferedImage(), 10, 300, null);
+                        graphics.setFont(new Font("TimesRoman", Font.PLAIN, 50));
+                        graphics.drawString("EMORY HEALTHCARE", 10, 160);
+                        graphics.drawString("DIGITAL PATHOLOGY", 10, 220);
+                        graphics.drawString("VALIDATION CASE", 10, 280);
                         //graphics.drawString("TESTING", 280, 370);
                     }
                     List<byte[]> stripByteList = new ArrayList<>();
@@ -417,7 +440,7 @@ public class LabelUtil {
                     //svsFile.write((new File(svsFile.svsFileName)).getName().replaceAll(".svs$", "_" + replacement + ".svs"));
                     //logger.log(Level.INFO, String.format("slide with replaced label written to %s in current directory", (new File(svsFile.svsFileName)).getName().replaceAll(".svs$", "_" + replacement + ".svs")));
                     if(!clobberMacro) {
-                        svsFile.write((new File(svsFile.svsFileName)).getName().replaceAll(".svs$", "_relabeled.svs"));
+                        svsFile.write((new File(svsFile.svsFileName)).getName().replaceAll(".svs$", "_relabeled_" + replacement.split("<br/>")[0] + ".svs"));
                         logger.log(Level.INFO, String.format("slide with replaced label written to %s in current directory", (new File(svsFile.svsFileName)).getName().replaceAll(".svs$", "_label_replaced.svs")));
                     }
                     
@@ -502,6 +525,41 @@ public class LabelUtil {
 // ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
             svsFile.write((new File(svsFile.svsFileName)).getName().replaceAll(".svs$", "_relabeled.svs"));
             logger.log(Level.INFO, String.format("slide with replaced label written to %s in current directory", (new File(svsFile.svsFileName)).getName().replaceAll(".svs$", "_relabeled.svs")));
+            
+        }
+        
+        if(metadata) {
+
+            for(TIFFDir tiffDir : svsFile.tiffDirList) {
+
+                //System.out.println(tiffDir.description);
+                Pattern p = Pattern.compile(".*\\n([0-9]*)x([0-9]*) .*\\|Date = ([^\\|]*)\\|.*\\|MPP = ([^\\|]*)\\|Rack = ([^\\|]*)\\|ScanScope ID = ([^\\|]*)\\|.*\\|Slide = ([^\\|]*)\\|.*\\|Time = ([^\\|]*)\\|.*", Pattern.DOTALL);
+                Matcher m = p.matcher(tiffDir.description);
+                m.matches();
+                int width = Integer.valueOf(m.group(1));
+                int height = Integer.valueOf(m.group(2));
+                float mpp = Float.valueOf(m.group(4));
+                int rack = Integer.valueOf(m.group(5));
+                String scanner = m.group(6);
+                int slide = Integer.valueOf(m.group(7));
+                Date date = new Date(m.group(3) + " " + m.group(8));
+                File file = new File(cmd.getArgs()[0]);
+                
+                System.out.println(String.format("%s\t%d\t%d\t%d\t%d\t%f\t%d\t%d\t%s",
+                    cmd.getArgs()[0].replace(".svs", ""),
+                    file.length(),
+                    width,
+                    height,
+                    date.getTime(),
+                    mpp,
+                    rack,
+                    slide,
+                    scanner
+                ));
+                
+                break;
+                
+            }
             
         }
         
