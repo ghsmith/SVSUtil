@@ -163,7 +163,10 @@ public class ColorUtil {
 
         Thread[] recolorThreads = new Thread[threads];
         for(int x = 0; x < threads; x++) {
-            if(svsFile.tiffDirList.get(0).description.startsWith("Aperio Leica Biosystems GT450 v1.0.1")) {
+            if(
+                svsFile.tiffDirList.get(0).description.startsWith("Aperio Leica Biosystems GT450 v1.0.1")
+                || svsFile.tiffDirList.get(0).description.startsWith("Aperio Leica Biosystems GT450 DX v1.2.0")
+            ) {
                 recolorThreads[x] = new Thread(new RecolorRunnerGT450(svsFile, quality, skip, noRecolor, annotate, startWithTiffDirIndex, dummyTile, noRecode));
             }
             else if(svsFile.tiffDirList.get(0).description.startsWith("Aperio Image Library v12.0.15")) {
