@@ -138,6 +138,22 @@ public class RecolorRunnerGT450 extends RecolorRunner {
                             
                             if(annotate) {
                                 TIFFDir tiffDir = svsFile.tiffDirList.get(Integer.valueOf(tileId.split("\\.")[0]));
+                                String mag = null;
+                                switch (tiffDir.id) {
+                                    case "0":
+                                        mag = "40x";
+                                        break;
+                                    case "2":
+                                        mag = "10x";
+                                        break;
+                                    case "3":
+                                        mag = "2.5x";
+                                        break;
+                                    default:
+                                        break;
+                                }
+                                String x = tileId.split("\\.")[1];
+                                String y = tileId.split("\\.")[2];
                                 Graphics2D graphics = image.createGraphics();
                                 graphics.setColor(Color.BLACK);
                                 graphics.setStroke(new BasicStroke(5f));
@@ -147,7 +163,7 @@ public class RecolorRunnerGT450 extends RecolorRunner {
                                 graphics.drawLine(tiffDir.tileWidth - 1, 0, tiffDir.tileWidth - 11, 10);
                                 graphics.setFont(new Font("TimesRoman", Font.BOLD, 30));
                                 FontMetrics metrics = graphics.getFontMetrics();
-                                graphics.drawString(tileId, 20, 1 * (metrics.getHeight() + 20));
+                                graphics.drawString(String.format("%s (%s, %s)", mag, x, y), 20, 1 * (metrics.getHeight() + 20));
                             }
 
                             IIOMetadata imageMetadata = reader.getImageMetadata(imageIndex);
