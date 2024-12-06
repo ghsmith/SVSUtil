@@ -173,8 +173,9 @@ public class ColorUtil {
                 recolorThreads[x] = new Thread(new RecolorRunnerAT2(svsFile, quality, skip, noRecolor, annotate, startWithTiffDirIndex, dummyTile, noRecode));
             }
             else {
-                System.err.println("unknown scanner");
-                System.exit(1);
+                System.err.println("unknown scanner - using GT450 runner");
+                recolorThreads[x] = new Thread(new RecolorRunnerGT450(svsFile, quality, skip, noRecolor, annotate, startWithTiffDirIndex, dummyTile, noRecode));
+                //System.exit(1);
             }
             recolorThreads[x].start();
         }
