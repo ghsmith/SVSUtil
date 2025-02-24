@@ -42,6 +42,8 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.logging.Level;
 import java.util.logging.Logger;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 import javax.imageio.IIOImage;
 import javax.imageio.ImageIO;
@@ -62,6 +64,7 @@ import org.apache.commons.cli.Option;
 import org.apache.commons.cli.Options;
 import org.apache.commons.cli.ParseException;
 import org.krysalis.barcode4j.impl.datamatrix.DataMatrixBean;
+import org.krysalis.barcode4j.impl.datamatrix.SymbolShapeHint;
 import org.krysalis.barcode4j.output.bitmap.BitmapCanvasProvider;
 
 /**
@@ -235,9 +238,18 @@ public class LabelUtil {
                     }
                     Graphics2D graphics = imageAnnotated.createGraphics();
                     graphics.drawImage(image, 0, 0, (int)(tiffDir.width * 1.00f), (int)(tiffDir.height * 1.00f), null); // scaling the original is possible
-                    graphics.setColor(Color.WHITE);
+                    graphics.setColor(Color.BLACK);
                     graphics.setFont(new Font("TimesRoman", Font.PLAIN, 50));
-                    graphics.drawString(annotation, 5, graphics.getFontMetrics().getHeight() + 20);
+                    //graphics.drawString(annotation, 200, 130);
+                    if(barCode) {
+                        DataMatrixBean dataMatrixBean = new DataMatrixBean();
+                        BitmapCanvasProvider canvas = new BitmapCanvasProvider(750, BufferedImage.TYPE_BYTE_GRAY, true, 0);
+                        dataMatrixBean.generateBarcode(canvas, annotation);
+                        canvas.finish();
+                        graphics.drawImage(canvas.getBufferedImage(), 350, 110, null);
+                        graphics.setColor(Color.WHITE);
+                        graphics.fillRect(0, 300, tiffDir.width, tiffDir.height);
+                    }
                     List<byte[]> stripByteList = new ArrayList<>();
                     for(int stripIndex = 0; stripIndex < tiffDir.stripOffsetsInSVS.length; stripIndex++) {
                         ByteArrayOutputStream bos = new ByteArrayOutputStream();
@@ -317,6 +329,12 @@ public class LabelUtil {
 
                 if(tiffDir.subfileType == 1) {
 
+                    //String fname = (new File(svsFile.svsFileName)).getName();
+                    //Pattern p = Pattern.compile("^([^_]*)_([^_]*)_([^_]*)_([^_]*)\\.svs$");
+                    //Matcher m = p.matcher(fname);
+                    //if(!m.matches()) { throw new RuntimeException("arg"); }
+                    //replacement = m.group(3) + "-A1-" + Integer.parseInt(m.group(2)) + "<br/>" + m.group(4);
+                    
                     // using monochrome for the label to keep the size small,
                     // otherwise it might not fit in the available space and
                     // most labels are monochrome, anyway
@@ -329,22 +347,24 @@ public class LabelUtil {
                     }
                     Graphics2D graphics = imageReplaced.createGraphics();
                     graphics.setColor(Color.WHITE);
-                    graphics.setFont(new Font("TimesRoman", Font.PLAIN, 70));
-                    int yStart = graphics.getFontMetrics().getHeight() + 20;
+                    graphics.setFont(new Font("TimesRoman", Font.PLAIN, 50));
+                    int yStart = graphics.getFontMetrics().getHeight() + 10;
                     for(String replacementLine : replacement.split("<br/>")) {
                         graphics.drawString(replacementLine, 5, yStart);
-                        yStart += graphics.getFontMetrics().getHeight() + 10;
+                        yStart += graphics.getFontMetrics().getHeight();
                     }
+                    //graphics.drawString("TESTING", 5, yStart);
                     if(barCode) {
                         DataMatrixBean dataMatrixBean = new DataMatrixBean();
-                        BitmapCanvasProvider canvas = new BitmapCanvasProvider(1000, BufferedImage.TYPE_BYTE_GRAY, true, 0);
-                        dataMatrixBean.generateBarcode(canvas, replacement);
+                        dataMatrixBean.setShape(SymbolShapeHint.FORCE_SQUARE);
+                        BitmapCanvasProvider canvas = new BitmapCanvasProvider(750, BufferedImage.TYPE_BYTE_GRAY, true, 0);
+                        dataMatrixBean.generateBarcode(canvas, replacement.split("<br/>")[0]);
                         canvas.finish();
-                        graphics.drawImage(canvas.getBufferedImage(), 10, 180, null);
-                        graphics.setFont(new Font("TimesRoman", Font.PLAIN, 60));
-                        graphics.drawString("TESTING", 280, 230);
-                        graphics.drawString("TESTING", 280, 300);
-                        graphics.drawString("TESTING", 280, 370);
+                        graphics.drawImage(canvas.getBufferedImage(), 10, 230, null);
+                        //graphics.setFont(new Font("TimesRoman", Font.PLAIN, 50));
+                        //graphics.drawString("from the collection of", 155, 355);
+                        //graphics.drawString("AB Farris III, MD", 155, 405);
+                        //graphics.drawString("January 24, 2025", 155, 455);
                     }
                     List<byte[]> stripByteList = new ArrayList<>();
                     for(int stripIndex = 0; stripIndex < tiffDir.stripOffsetsInSVS.length; stripIndex++) {
@@ -418,7 +438,7 @@ public class LabelUtil {
                     //logger.log(Level.INFO, String.format("slide with replaced label written to %s in current directory", (new File(svsFile.svsFileName)).getName().replaceAll(".svs$", "_" + replacement + ".svs")));
                     if(!clobberMacro) {
                         if(barCode) {
-                            svsFile.write((new File(svsFile.svsFileName)).getName().replaceAll(".svs$", "_" + replacement + ".svs"));
+                            svsFile.write((new File(svsFile.svsFileName)).getName().replaceAll(".svs$", "_" + replacement.split("<br/>")[0] + ".svs").replaceAll("<br/>", "_"));
                             logger.log(Level.INFO, String.format("slide with replaced label written to %s in current directory", (new File(svsFile.svsFileName)).getName().replaceAll(".svs$", "_" + replacement + ".svs")));
                         }
                         else {
