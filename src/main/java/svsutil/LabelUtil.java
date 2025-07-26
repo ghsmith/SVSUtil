@@ -66,6 +66,8 @@ import org.apache.commons.cli.ParseException;
 import org.krysalis.barcode4j.impl.datamatrix.DataMatrixBean;
 import org.krysalis.barcode4j.impl.datamatrix.SymbolShapeHint;
 import org.krysalis.barcode4j.output.bitmap.BitmapCanvasProvider;
+import org.libdmtx.DMTXImage;
+import org.libdmtx.DMTXTag;
 
 /**
  * 
@@ -236,19 +238,31 @@ public class LabelUtil {
                     else {
                         imageAnnotated = new BufferedImage(tiffDir.width, tiffDir.height, BufferedImage.TYPE_3BYTE_BGR);
                     }
+
+//DMTXImage lDImg = new DMTXImage(image);
+//DMTXTag[] tags = lDImg.getTags(2, 10000); // max 2 tags, max 10 second timeout
+//System.out.println(String.format("barcode at (%d,%d)", tags[0].corner1.x, tags[0].corner1.y));
+//System.out.println(String.format("barcode at (%d,%d)", tags[0].corner2.x, tags[0].corner2.y));
+//System.out.println(String.format("barcode at (%d,%d)", tags[0].corner3.x, tags[0].corner3.y));
+//System.out.println(String.format("barcode at (%d,%d)", tags[0].corner4.x, tags[0].corner4.y));
+                    
                     Graphics2D graphics = imageAnnotated.createGraphics();
                     graphics.drawImage(image, 0, 0, (int)(tiffDir.width * 1.00f), (int)(tiffDir.height * 1.00f), null); // scaling the original is possible
                     graphics.setColor(Color.BLACK);
                     graphics.setFont(new Font("TimesRoman", Font.PLAIN, 50));
                     //graphics.drawString(annotation, 200, 130);
                     if(barCode) {
+                        
                         DataMatrixBean dataMatrixBean = new DataMatrixBean();
-                        BitmapCanvasProvider canvas = new BitmapCanvasProvider(750, BufferedImage.TYPE_BYTE_GRAY, true, 0);
+                        BitmapCanvasProvider canvas = new BitmapCanvasProvider(800, BufferedImage.TYPE_BYTE_GRAY, true, 0);
                         dataMatrixBean.generateBarcode(canvas, annotation);
                         canvas.finish();
-                        graphics.drawImage(canvas.getBufferedImage(), 350, 110, null);
-                        graphics.setColor(Color.WHITE);
-                        graphics.fillRect(0, 300, tiffDir.width, tiffDir.height);
+                        graphics.drawImage(canvas.getBufferedImage(), 368 - 20, 118 - 20, null);
+                        //graphics.setColor(Color.WHITE);
+                        //graphics.fillRect(0, 375, tiffDir.width, tiffDir.height);
+                        //graphics.setColor(Color.BLACK);
+                        //graphics.drawString("COPY FOR AUTOQUANT", 0, 415);
+                        //graphics.drawString(annotation, 0, 460);
                     }
                     List<byte[]> stripByteList = new ArrayList<>();
                     for(int stripIndex = 0; stripIndex < tiffDir.stripOffsetsInSVS.length; stripIndex++) {
