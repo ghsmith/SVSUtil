@@ -139,15 +139,39 @@ public class RecolorRunnerGT450 extends RecolorRunner {
                             if(annotate) {
                                 TIFFDir tiffDir = svsFile.tiffDirList.get(Integer.valueOf(tileId.split("\\.")[0]));
                                 String mag = null;
-                                switch (tiffDir.id) {
-                                    case "0":
+                                switch (Math.round(tiffDir.mpp * 100)) {
+                                    case 25:
+                                    case 26:
+                                    case 27:
                                         mag = "40x";
                                         break;
-                                    case "2":
+                                    case 51:
+                                    case 52:
+                                    case 53:
+                                        mag = "20x";
+                                        break;
+                                    case 104:
+                                    case 105:
+                                    case 106:
                                         mag = "10x";
                                         break;
-                                    case "3":
+                                    case 209:
+                                    case 210:
+                                    case 211:
+                                        mag = "5x";
+                                        break;
+                                    case 419:
+                                    case 420:
+                                    case 421:
                                         mag = "2.5x";
+                                        break;
+                                    case 839:
+                                    case 840:
+                                    case 841:
+                                        mag = "1.25x";
+                                        break;
+                                    case 1682:
+                                        mag = "0.625x";
                                         break;
                                     default:
                                         break;
@@ -161,9 +185,16 @@ public class RecolorRunnerGT450 extends RecolorRunner {
                                 graphics.drawLine(0, tiffDir.tileHeight - 1, 10, tiffDir.tileHeight - 11);
                                 graphics.drawLine(tiffDir.tileWidth - 1, tiffDir.tileHeight - 1, tiffDir.tileWidth - 11, tiffDir.tileHeight - 11);
                                 graphics.drawLine(tiffDir.tileWidth - 1, 0, tiffDir.tileWidth - 11, 10);
-                                graphics.setFont(new Font("TimesRoman", Font.BOLD, 30));
-                                FontMetrics metrics = graphics.getFontMetrics();
-                                graphics.drawString(String.format("%s (%s, %s)", mag, x, y), 20, 1 * (metrics.getHeight() + 20));
+                                {
+                                    graphics.setFont(new Font("TimesRoman", Font.BOLD, 60));
+                                    FontMetrics metrics = graphics.getFontMetrics();
+                                    graphics.drawString(String.format("%s", mag), 20, 1 * (metrics.getHeight() + 20));
+                                }
+                                {
+                                    graphics.setFont(new Font("TimesRoman", Font.BOLD, 30));
+                                    FontMetrics metrics = graphics.getFontMetrics();
+                                    graphics.drawString(String.format("(%s, %s)", x, y), 20, 3 * (metrics.getHeight() + 20));
+                                }
                             }
 
                             IIOMetadata imageMetadata = reader.getImageMetadata(imageIndex);
