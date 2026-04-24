@@ -240,12 +240,25 @@ public class LabelUtil {
                     }
 
 DMTXImage lDImg = new DMTXImage(image);
-DMTXTag[] tags = lDImg.getTags(2, 10000); // max 2 tags, max 10 second timeout
-System.out.println(String.format("barcode at (%d,%d)", tags[0].corner1.x, tags[0].corner1.y));
-System.out.println(String.format("barcode at (%d,%d)", tags[0].corner2.x, tags[0].corner2.y));
-System.out.println(String.format("barcode at (%d,%d)", tags[0].corner3.x, tags[0].corner3.y));
-System.out.println(String.format("barcode at (%d,%d)", tags[0].corner4.x, tags[0].corner4.y));
-                    
+DMTXTag[] tags = lDImg.getTags(2, 20000); // max 2 tags, max 10 second timeout
+int bcx;
+int bcy;
+int bcsize;
+if(tags.length > 0) {
+    System.out.println(String.format("barcode at (%d,%d)", tags[0].corner1.x, tags[0].corner1.y));
+    System.out.println(String.format("barcode at (%d,%d)", tags[0].corner2.x, tags[0].corner2.y));
+    System.out.println(String.format("barcode at (%d,%d)", tags[0].corner3.x, tags[0].corner3.y));
+    System.out.println(String.format("barcode at (%d,%d)", tags[0].corner4.x, tags[0].corner4.y));
+    bcx = tags[0].corner4.x - 5;
+    bcy = tags[0].corner4.y - 5;
+    bcsize = (tags[0].corner3.x - tags[0].corner4.x) * 5;
+}
+else {
+    bcx = 380;
+    bcy = 100;
+    bcsize = 800;
+}
+
                     Graphics2D graphics = imageAnnotated.createGraphics();
                     graphics.drawImage(image, 0, 0, (int)(tiffDir.width * 1.00f), (int)(tiffDir.height * 1.00f), null); // scaling the original is possible
                     graphics.setColor(Color.BLACK);
@@ -255,10 +268,10 @@ System.out.println(String.format("barcode at (%d,%d)", tags[0].corner4.x, tags[0
                         
                         DataMatrixBean dataMatrixBean = new DataMatrixBean();
                         dataMatrixBean.setShape(SymbolShapeHint.FORCE_SQUARE);
-                        BitmapCanvasProvider canvas = new BitmapCanvasProvider((tags[0].corner3.x - tags[0].corner4.x) * 5, BufferedImage.TYPE_BYTE_GRAY, true, 0);
+                        BitmapCanvasProvider canvas = new BitmapCanvasProvider(bcsize, BufferedImage.TYPE_BYTE_GRAY, true, 0);
                         dataMatrixBean.generateBarcode(canvas, annotation);
                         canvas.finish();
-                        graphics.drawImage(canvas.getBufferedImage(), tags[0].corner4.x - 5, tags[0].corner4.y - 5, null);
+                        graphics.drawImage(canvas.getBufferedImage(), bcx, bcy, null);
                         //graphics.setColor(Color.WHITE);
                         //graphics.fillRect(0, 375, tiffDir.width, tiffDir.height);
                         //graphics.setColor(Color.BLACK);
